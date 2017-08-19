@@ -1,0 +1,52 @@
+{
+	"Office Worker": {
+		"desc": "You work for a big corporation.",
+		"salary": 50,
+		"energyRequired": 100,
+		"workRequired": 1000000000000000000,
+		"workExp": 4,
+		"educationLvl": 10
+	},
+	"Fast Food Worker": {
+		"desc": "You work at McDonalds.",
+		"salary": 30,
+		"energyRequired": 25,
+		"workRequired": 30,
+		"workExp": 2
+	},
+	"Cleaner": {
+		"desc": "You are a cleaner for small companies",
+		"salary": 15,
+		"energyRequired": 15,
+		"workRequired": 10,
+		"workExp": 1
+	},
+	"Dish Washer": {
+		"desc": "You wash dishes for restaurants.",
+		"salary": 10,
+		"energyRequired": 5,
+		"workRequired": 5,
+		"workExp": 1
+	},
+	"Road Sweeper": {
+		"desc": "You sweep leaves and branches off the road.",
+		"salary": 5,
+		"energyRequired": 10,
+		"workRequired": 0,
+		"workExp": 1
+	},
+	"Beggar": {
+		"desc": "You beg for money",
+		"salary": 2,
+		"energyRequired": 2,
+		"workRequired": 0,
+		"workExp": 0
+	},
+	"Unemployed": {
+		"desc": "You have no job.",
+		"salary": 0,
+		"energyRequired": 0,
+		"workRequired": 0,
+		"workExp": 0
+	}
+}

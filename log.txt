@@ -1,0 +1,36 @@
+ReferenceError: play is not defined
+    at Object.get p [as p] (C:\Users\Engineer\Desktop\DiscordBot\bot.js:82:18)
+    at resolve (C:\Users\Engineer\Desktop\DiscordBot\bot.js:263:26)
+    at Promise (<anonymous>)
+    at Object.run (C:\Users\Engineer\Desktop\DiscordBot\bot.js:261:25)
+    at Client.client.on.message (C:\Users\Engineer\Desktop\DiscordBot\bot.js:398:76)
+    at emitOne (events.js:115:13)
+    at Client.emit (events.js:210:7)
+    at MessageCreateHandler.handle (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\packets\handlers\MessageCreate.js:9:34)
+    at WebSocketPacketManager.handle (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\packets\WebSocketPacketManager.js:102:65)
+    at WebSocketConnection.onPacket (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\WebSocketConnection.js:325:35)
+Code: undefined
+Date: Sat Aug 19 2017 19:37:09 GMT+0800 (Malay Peninsula Standard Time)
+
+ReferenceError: play is not defined
+    at Object.get p [as p] (C:\Users\Engineer\Desktop\DiscordBot\bot.js:82:18)
+    at resolve (C:\Users\Engineer\Desktop\DiscordBot\bot.js:263:26)
+    at Promise (<anonymous>)
+    at Object.run (C:\Users\Engineer\Desktop\DiscordBot\bot.js:261:25)
+    at Client.client.on.message (C:\Users\Engineer\Desktop\DiscordBot\bot.js:398:76)
+    at emitOne (events.js:115:13)
+    at Client.emit (events.js:210:7)
+    at MessageCreateHandler.handle (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\packets\handlers\MessageCreate.js:9:34)
+    at WebSocketPacketManager.handle (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\packets\WebSocketPacketManager.js:102:65)
+    at WebSocketConnection.onPacket (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\websocket\WebSocketConnection.js:325:35)
+Code: undefined
+Date: Sat Aug 19 2017 19:37:12 GMT+0800 (Malay Peninsula Standard Time)
+
+DiscordAPIError: Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.
+    at item.request.gen.end (C:\Users\Engineer\Desktop\DiscordBot\node_modules\discord.js\src\client\rest\RequestHandlers\Sequential.js:68:65)
+    at then (C:\Users\Engineer\Desktop\DiscordBot\node_modules\snekfetch\src\index.js:257:21)
+    at <anonymous>
+    at process._tickCallback (internal/process/next_tick.js:188:7)
+Code: 50016
+Date: Sat Aug 19 2017 20:45:50 GMT+0800 (Malay Peninsula Standard Time)
+

@@ -1,0 +1,8 @@
+*.swp
+/build
+/deps/build
+*.pcm
+*.opus
+node_modules/
+.vscode
+/coverage

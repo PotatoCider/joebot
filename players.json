@@ -1,0 +1,41 @@
+{
+	"250140362880843776": {
+		"balance": 20,
+		"energyTimer": 1503150433206,
+		"workExp": 4,
+		"job": {
+			"desc": "You sweep leaves and branches off the road.",
+			"salary": 5,
+			"energyRequired": 10,
+			"workRequired": 0,
+			"workExp": 1
+		},
+		"jobName": "Road Sweeper"
+	},
+	"301665541649596416": {
+		"balance": 0,
+		"energyTimer": 1502378631125,
+		"workExp": 0,
+		"job": {
+			"desc": "You have no job.",
+			"salary": 0,
+			"energyRequired": 0,
+			"workRequired": 0,
+			"workExp": 0
+		},
+		"jobName": "Unemployed"
+	},
+	"241216483592634368": {
+		"balance": 0,
+		"energyTimer": 1503147406309,
+		"workExp": 0,
+		"job": {
+			"desc": "You have no job.",
+			"salary": 0,
+			"energyRequired": 0,
+			"workRequired": 0,
+			"workExp": 0
+		},
+		"jobName": "Unemployed"
+	}
+}
