@@ -6,6 +6,7 @@ const Discord = require('discord.js'),
 	EventEmitter = require('events');
 let prefix, readyState = 0;
 /*
+	GitHub :D
 	TODO: Add more commands like mute, 8ball, rate, remindme, urban, music, currency, slots, lotto, vote, repeat cmd(only certain commands like nick, role)
 	Add Check position to mod commands.
 	Add guild options.
