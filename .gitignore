@@ -1,7 +1,11 @@
 # Data + Info
 *.json
 
+# Run 
+start_bot.bat
+
 # Logs
+log.txt
 logs
 *.log
 npm-debug.log*
