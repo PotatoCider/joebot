@@ -31,7 +31,7 @@ const cache = {
 					if(!data)throw new Error("File is empty or does not exist.");
 					cache["__" + name] = JSON.parse(data);
 					Object.defineProperty(cache, name, {
-	 get: function(){ return this["__" + name]; },
+						get: function(){ return this["__" + name]; },
 						set: function(obj){
 							cache["__" + name] = obj;
 							this.update(name); 
@@ -40,7 +40,7 @@ const cache = {
 					resolve();
 				});
 			});
-			Promise.all([read("players"), read("jobs"), read("config"), read("guilds")]).then(resolve);
+			Promise.all([read("players"), read("jobs"), read("config")]).then(resolve);
 		}
 	})
 };
