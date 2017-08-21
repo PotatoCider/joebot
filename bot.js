@@ -251,7 +251,7 @@ const commands = {
     info: "Only for Me :D",
     hide: true
   },
-  mod: null,
+  mod: null, 
   // Normal Commands
   music: { // Implement queue + Clean up code
     run: (msg, params) => new Promise(resolve => {
