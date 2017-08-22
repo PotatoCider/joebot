@@ -35,7 +35,7 @@ const cache = {
 						get: function(){ return this["__" + name]; },
 						set: function(obj){
 							cache["__" + name] = obj;
-							this.update(name);
+							this.update(name); 
 						}
 					});
 					resolve();
@@ -53,11 +53,11 @@ const music = {
 			let content = "";
 			for(let i = 0; i < 5; i++){
 				const result = results[i].snippet;
-				content += `**${ i+1 }**: **\`${ result.title }\` by** ${ result.channelTitle }.\n` 
+				content += `**${ i+1 }**: **\`${ result.title }\` by** ${ result.channelTitle }\n` 
 			}
 			message.channel.send(content).then(msg => {
-				const numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣"],
-					setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < 4 ? setOptions(i+1) : null);
+				const numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣"];
+				const setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < 4 ? setOptions(i+1) : null);
 				setOptions();
 				const collector = msg.createReactionCollector(
 					(reaction, user) => numbers.includes(reaction.emoji.name) && user.id === message.author.id,
@@ -65,26 +65,18 @@ const music = {
 				);
 				collector.once("collect", reaction => {
 					collector.stop();
-					msg.delete();
 					const vc = message.member.voiceChannel,
 						selfVc = message.guild.me.voiceChannel,
 						music = guilds[msg.guild.id].music,
-						vid = results[reaction.emoji.name.slice(0, 1) - 1]; // convert emoji to number(trick)
-					music.queue.push(vid);
-					resolve(`**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.title }.`);
+						vidId = results[reaction.emoji.name.slice(0,1) - 1].id.videoId; // convert emoji to number(trick)
 					if(!vc && !selfVc)return resolve("You/I must be in a voice channel first!");
-					if(selfVc !== vc && vc)vc.join().then(connection => music.emit("next", connection, msg.channel));
+					if(selfVc !== vc && vc)vc.join().then(connection => music.emit("added", connection));
+						else music.emit("added", selfVc.connection);
 				})
 			});
 		}); 
 	}),
-	skip: msg => guilds[msg.guild.id].music.dispatcher.end(), // TODO: Add permissions
-	queue: (msg, param) => new Promise(resolve => {
-		const queue = guilds[msg.guild.id].music.queue;
-		for(const vid of queue){}
-	}),
-	get p(){ return this.play; },
-	get s(){ return this.skip }
+	get p(){ return this.play; }
 };
 const print = (channel, limit, i = 1) => channel.send(i).then(() => (i < limit) ? print(channel, limit, i+1) : null);
 
@@ -405,7 +397,10 @@ client.on('message', message => {
 	}else if(reply)message.channel.send(reply(message));
 });
 
-client.on("guildCreate", guild => setupMusic(guild.id));
+client.on("guildCreate", newGuild => {
+	const guild = guilds[newGuild.id] = { music: new EventEmitter() };
+	guild.music.queue = [];
+});
 
 client.on("guildDelete", guild => guilds[guild.id] = null);
 
@@ -417,7 +412,10 @@ cache.update().then(() => {
 	prefix = cache.config.prefix;
 	client.login(cache.config.token).then(() => {
 		const ids = client.guilds.keys();
-		for(const id of ids)setupMusic(id);
+		for(const id of ids){
+			guilds[id] = { music: new EventEmitter() };
+			guilds[id].music.queue = [];
+		}
 		readyState++;
 		console.log("The bot is online!");
 	});
