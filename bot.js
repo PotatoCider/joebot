@@ -177,29 +177,6 @@ const youtube = {
 		});
 	})
 };
-const musicListeners = {
-	next: (connection, channel) => {
-		const music = guilds[channel.guild.id].music;
-		if(music.isPlaying)return;
-		const vid = music.queue.shift(),
-			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id.videoId, { filter: "audioonly" });
-		music.isPlaying = true;
-		music.nowPlaying = vid;
-		music.dispatcher = connection.playStream(stream).once("end", () => {
-			music.isPlaying = music.dispatcher = false;
-			if(!music.queue.length)return connection.channel.leave(); 
-			music.emit("next", connection, channel);
-		});
-		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.title }.`);
-	}
-};
-const setupMusic = guild => {
-	guild = guilds[guild] = { music: new EventEmitter() };
-	const music = guild.music;
-	music.queue = [];
-	music.isPlaying = music.dispatcher = false;
-	music.on("next", musicListeners.next);
-};
 const clearMsg = (channel, i, resolve) => channel.bulkDelete((i < 100) ? i : (i === 101) ? i++-2 : 100, true).then(() => (i > 100) ? clearMsg(channel, i-100) : resolve()).catch(errorHandler);
 const forceDelete = (messages, i = 0) => messages[i].delete().then(() => forceDelete(messages, i+1));
 const commands = {
