@@ -46,20 +46,21 @@ const cache = {
 	})
 };
 const guilds = {};
-const music = {
-	play: (message, param) => new Promise(resolve => {
-		if(!param)return resolve("You must provide a link/title to play a video!");
-		youtube.search(param, 5).then(results => {
+const musicCmds = {
+	play: (music, message, query) => new Promise(resolve => {
+		if(!query)return resolve("You must provide a link/title to play a video!");
+		youtube.search(query, 5).then(results => {
+			if(!results)return resolve("No results found.");
 			let content = "";
-			for(let i = 0; i < 5; i++){
+			for(let i = 0; i < results.length; i++){
 				const result = results[i].snippet;
 				content += `**${ i+1 }**: **\`${ result.title }\` by** ${ result.channelTitle }.\n` 
 			}
-			message.channel.send(content).then(msg => {
+			message.channel.send(content).then(msg => { // TODO: Rich Embed this shit
 				const numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣"],
-					setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < 4 ? setOptions(i+1) : null);
+					setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < results.length - 1 ? setOptions(i+1) : null);
 				setOptions();
-				const collector = msg.createReactionCollector(
+				const collector = msg.createReactionCollector( // TODO: Listen for message also.
 					(reaction, user) => numbers.includes(reaction.emoji.name) && user.id === message.author.id,
 					{ time: 30000 }
 				);
@@ -67,24 +68,67 @@ const music = {
 					collector.stop();
 					msg.delete();
 					const vc = message.member.voiceChannel,
-						selfVc = message.guild.me.voiceChannel,
-						music = guilds[msg.guild.id].music,
+						selfVc = msg.guild.me.voiceChannel,
 						vid = results[reaction.emoji.name.slice(0, 1) - 1]; // convert emoji to number(trick)
 					music.queue.push(vid);
-					resolve(`**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.title }.`);
 					if(!vc && !selfVc)return resolve("You/I must be in a voice channel first!");
-					if(selfVc !== vc && vc)vc.join().then(connection => music.emit("next", connection, msg.channel));
-				})
+					if(selfVc !== vc && vc)vc.join().then(connection => music.nowPlaying ? null : music.emit("next", connection, msg.channel));
+					resolve(`**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`);
+				});
 			});
-		}); 
+		});
 	}),
-	skip: msg => guilds[msg.guild.id].music.dispatcher.end(), // TODO: Add permissions
-	queue: (msg, param) => new Promise(resolve => {
-		const queue = guilds[msg.guild.id].music.queue;
-		for(const vid of queue){}
-	}),
+	skip: music => {
+		if(music.nowPlaying)music.dispatcher.end();
+			else return "No songs in queue to skip.";
+	},
+	queue: music => {
+		const queue = music.queue;
+		let message = musicCmds.nowPlaying(music);
+		for(let i = 0; i < queue.length; i++){
+			const vid = queue[i].snippet;
+			message += `**${ i+1 }**: **\`${ vid.title }\` by** ${ vid.channelTitle }\n`;
+		}
+		return message;
+	},
+	nowPlaying: music => {
+		if(!music.nowPlaying)return "There is nothing playing now."
+		const nowPlaying = music.nowPlaying.snippet;
+		return `**Now playing**: **\`${ nowPlaying.title }\` by** ${ nowPlaying.channelTitle }\n\n`;
+	},
 	get p(){ return this.play; },
-	get s(){ return this.skip }
+	get s(){ return this.skip; },
+	get q(){ return this.queue; },
+	get np(){ return this.nowPlaying; }
+};
+const youtube = {
+	search: (query, maxResults) => new Promise(resolve => {
+		request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
+			if(err)errorHandler(err);
+			console.log(res.statusCode);
+			resolve(JSON.parse(body).items);
+		});
+	})
+};
+const musicListeners = {
+	next: (connection, channel) => {
+		const music = guilds[channel.guild.id].music;
+		const vid = music.queue.shift(),
+			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id.videoId, { filter: "audioonly" });
+		music.nowPlaying = vid;
+		music.dispatcher = connection.playStream(stream).once("end", () => {
+			music.nowPlaying = music.dispatcher = false;
+			if(!music.queue.length)return connection.channel.leave(); 
+			music.emit("next", connection, channel);
+		});
+		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.title }.`);
+	}
+};
+const setupMusic = id => {
+	const guild = guilds[id] = { music: new EventEmitter() },
+		music = guild.music;
+	music.queue = music.queue || [];
+	music.on("next", musicListeners.next);
 };
 const print = (channel, limit, i = 1) => channel.send(i).then(() => (i < limit) ? print(channel, limit, i+1) : null);
 
@@ -117,9 +161,7 @@ const checkPerms = (perm, msg) => {
 };
 const hasPerm = (mem, perm) => mem ? mem.hasPermission(perm) : false;
 const errorHandler = (err, msg, e) => {
-	if(!err)return;
-	if(err.code === 50006)return false;
-	fs.appendFile("log.txt", `${ err.stack }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
+	if(!err || err.message.includes("Provided too few or too many messages to delete."))return;
 	if(err.message.includes("Privilege is too low...")){
 		msg.channel.send(`Cannot ${ e } anyone higher than me.`);
 		return true;
@@ -128,6 +170,7 @@ const errorHandler = (err, msg, e) => {
 		msg.channel.send("Too long nickname.")
 		return true;
 	}
+	fs.appendFile("log.txt", `${ err.stack }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
 	return false;
 };
 const addPlayer = (id, players) => {
@@ -167,15 +210,6 @@ const accessPlayer = (id, isWorking, difference = 0) => {
 		info: player,
 		all: players
 	};
-};
-const youtube = {
-	search: (query, maxResults) => new Promise(resolve => {
-		request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
-			if(err)errorHandler(err);
-			console.log(res.statusCode);
-			resolve(JSON.parse(body).items);
-		});
-	})
 };
 const clearMsg = (channel, i, resolve) => channel.bulkDelete((i < 100) ? i : (i === 101) ? i++-2 : 100, true).then(() => (i > 100) ? clearMsg(channel, i-100) : resolve()).catch(errorHandler);
 const forceDelete = (messages, i = 0) => messages[i].delete().then(() => forceDelete(messages, i+1));
@@ -265,8 +299,8 @@ const commands = {
 	music: { // Implement queue + Clean up code
 		run: (msg, params) => new Promise(resolve => {
 			params = params.split(" ");
-			const musicCmd = music[params.shift().toLowerCase()];
-			resolve(musicCmd ? musicCmd(msg, params.join(" ")) : "Invalid music command.");
+			const musicCmd = musicCmds[params.shift().toLowerCase()];
+			resolve(musicCmd ? musicCmd(guilds[msg.guild.id].music, msg, params.join(" ")) : "Invalid music command.");
 		}),
 		info: "Plays music.",
 		requiresGuild: true,
@@ -423,6 +457,7 @@ cache.update().then(() => {
 	});
 });
 
+process.on("unhandledRejection", console.error);
 /*
 	Permissions:
 	ADMINISTRATOR (implicitly has all permissions, and bypasses all channel overwrites)
