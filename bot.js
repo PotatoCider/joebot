@@ -2,6 +2,7 @@ const Discord = require('discord.js'),
 	client = new Discord.Client(),
 	fs = require('fs'),
 	ytdl = require('ytdl-core'),
+	fetchYoutubeInfo = require('youtube-info'),
 	request = require('request'),
 	EventEmitter = require('events');
 let prefix, readyState = 0;
@@ -13,10 +14,13 @@ let prefix, readyState = 0;
 	Custom prefixes for different guilds.
 	Improve help command to further give info on how to use command.
 	Create -debug command to debug all commands. 
+	Use SQL Databases 
 	Add Salary system(Using your daily energy)
 		- Achievements
 		- Education
 		- Promotion (Done!)
+	Add ignore channels
+	When joined a guild, send message and tell the admins which commands need which permissions
 */
 const cache = {
 	update: key => new Promise(resolve => { 
@@ -41,46 +45,89 @@ const cache = {
 					resolve();
 				});
 			});
-			Promise.all([read("players"), read("jobs"), read("config")]).then(resolve);
+			Promise.all([read("players"), read("jobs"), read("config"), read("images")]).then(resolve);
 		}
 	})
 };
 const guilds = {};
-const musicCmds = {
-	play: (music, message, query) => new Promise(resolve => {
+const randomColor = () => "#" + (~~(Math.random() * 16777215)).toString(16);
+const convertTime = ({ms = 0, s = 0, m = 0, h = 0, d = 0}) => {
+	s += ~~(ms / 1000);
+	ms %= 1000;
+	m += ~~(s / 60);
+	s %= 60;
+	h += ~~(m / 60);
+	m %= 60;
+	d += ~~(h / 24);
+	h %= 24;
+	return {ms:ms, s:s, m:m, h:h, d:d};
+}
+const musicCmds = { // CHECK PERMISSIONS FOR THIS COMMANDS!!11!!183u129dhe32dy32dg6732d!He2187d329u8
+	play: (music, message, query) => new Promise(resolve => { // Add playlist support
 		if(!query)return resolve("You must provide a link/title to play a video!");
-		youtube.search(query, 5).then(results => {
+		const youtubeSearch = (query, maxResults) => new Promise(resolve => {
+			const endIndex = query.indexOf("&"),
+				isUrl = query.includes("youtube.com/watch?v=");
+			query = isUrl ? query.slice(query.indexOf("="), (endIndex + 1 || query.length + 1) - 1) : query;
+			request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
+				if(err)errorHandler(err);
+				const items = JSON.parse(body).items;
+				if(isUrl || items.length === 1)return resolve(items[0]);
+				resolve(items);
+			});
+		}),
+			numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣","❌"],
+			queueAdd = (vid, vc, selfVc, r, m, msg, mDelete) => {
+				if(r){
+					clearTimeout(mDelete);
+					r.stop();
+					m.stop();
+					msg.delete();
+				}
+				if(!vid)return resolve({ content: "Music selection cancelled.", delete: 3000 });
+				if(!vc && !selfVc)return resolve({ content: "You/I must be in a voice channel first!", delete: 3000 });
+				music.queue.push(vid);	
+				(vc || selfVc).join().then(connection => music.nowPlaying ? null : music.emit("next", connection, message.channel));
+				resolve({ content: `**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`, delete: 3000 });
+			};
+		youtubeSearch(query, 5).then(results => {
 			if(!results)return resolve("No results found.");
-			let content = "";
+			if(!Array.isArray(results))return queueAdd(results, message.member.voiceChannel, message.guild.me.voiceChannel);
+			const embed = new Discord.RichEmbed()
+				.setAuthor("Youtube", cache.images.yt) // Add setAuthor
+				.setFooter(`This selection will timeout in 15 seconds. Type "cancel" to cancel | Requested by ${ message.author.tag }`)
+				.setThumbnail(cache.images.music)
+				.setColor(randomColor());
 			for(let i = 0; i < results.length; i++){
 				const result = results[i].snippet;
-				content += `**${ i+1 }**: **\`${ result.title }\` by** ${ result.channelTitle }.\n` 
+				embed.addField(`**Option ${ numbers[i] }**:`, `**[${ result.title }](https://www.youtube.com/watch?v=${ results[i].id.videoId }) by** [${ result.channelTitle }](https://www.youtube.com/channel/${ result.channelId })`); 
 			}
-			message.channel.send(content).then(msg => { // TODO: Rich Embed this shit
-				const numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣"],
-					setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < results.length - 1 ? setOptions(i+1) : null);
+			message.channel.send({ embed: embed }).then(msg => { 
+				const	setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < results.length ? setOptions(i+1) : null).catch(e => e.message === "Unknown Message" ? null : errorHandler(e)),
+					r = msg.createReactionCollector( 
+						(reaction, user) => numbers.includes(reaction.emoji.name) && user.id === message.author.id,
+						{ time: 15000 }
+					),
+					m = msg.channel.createMessageCollector(
+						msg => msg.author.id === message.author.id && msg.content >= 1 && msg.content <= 5 && !(msg.content % 1) || msg.content === "cancel",
+						{ time: 15000 }
+					),
+					vc = message.member.voiceChannel,
+					selfVc = msg.guild.me.voiceChannel,
+					mDelete = setTimeout(() => {
+						msg.clearReactions();
+						msg.edit("Music selection has timed out.", { embed: {} });
+						msg.delete(5000);
+					}, 15000);
 				setOptions();
-				const collector = msg.createReactionCollector( // TODO: Listen for message also.
-					(reaction, user) => numbers.includes(reaction.emoji.name) && user.id === message.author.id,
-					{ time: 30000 }
-				);
-				collector.once("collect", reaction => {
-					collector.stop();
-					msg.delete();
-					const vc = message.member.voiceChannel,
-						selfVc = msg.guild.me.voiceChannel,
-						vid = results[reaction.emoji.name.slice(0, 1) - 1]; // convert emoji to number(trick)
-					music.queue.push(vid);
-					if(!vc && !selfVc)return resolve("You/I must be in a voice channel first!");
-					if(selfVc !== vc && vc)vc.join().then(connection => music.nowPlaying ? null : music.emit("next", connection, msg.channel));
-					resolve(`**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`);
-				});
+				r.once("collect", reaction => queueAdd(results[reaction.emoji.name.slice(0, 1) - 1], vc, selfVc, r, m, msg, mDelete));
+				m.once("collect", message => queueAdd(results[message.content - 1], vc, selfVc, r, m, msg, mDelete));
 			});
 		});
 	}),
-	skip: music => {
-		if(music.nowPlaying)music.dispatcher.end();
-			else return "No songs in queue to skip.";
+	skip: music => { // TODO: Add Permissions + Skip at index n of queue
+		if(!music.nowPlaying)return "No songs in queue to skip.";
+		music.dispatcher.end();
 	},
 	queue: music => {
 		const queue = music.queue;
@@ -91,47 +138,56 @@ const musicCmds = {
 		}
 		return message;
 	},
-	nowPlaying: music => {
-		if(!music.nowPlaying)return "There is nothing playing now."
-		const nowPlaying = music.nowPlaying.snippet;
-		return `**Now playing**: **\`${ nowPlaying.title }\` by** ${ nowPlaying.channelTitle }\n\n`;
+	nowplaying: (music, msg) => { // TODO: Add more infomation about video
+		if(!music.nowPlaying)return "There is nothing playing now.";
+		const np = music.nowPlaying.snippet;
+		if(!msg)return `**Now playing**: **\`${ np.title }\` by** ${ np.channelTitle }\n\n`;
+		fetchYoutubeInfo(music.nowPlaying.id.videoId).then(vid => {
+			const { s:s, m:m, h:h, d:d } = convertTime({ s: vid.duration }),
+				embed = new Discord.RichEmbed()
+				.setAuthor("Youtube", cache.images.yt)
+				.setThumbnail(vid.thumbnailUrl)
+				.setColor(randomColor())
+				.setFooter(`Requested by ${ msg.author.tag }`)
+				.addField("Video", `**[${vid.title}](${vid.url})**`)
+				.addField("Owner", vid.owner, true)
+				.addField("Views", vid.views, true)
+				.addField("Genre", vid.genre, true)
+				.addField("Time", (d ? `${d}d ` : "") + (h ? `${h}h ` : "") + (m ? `${m}m ` : "") + (s ? `${s}s` : ""), true);
+			msg.channel.send({ embed: embed });
+		});
+	},
+	leave: (music, msg) => {
+		const vc = msg.guild.me.voiceChannel;
+		if(!vc)return "No voice channel to leave.";
+		music.queue = [];
+		if(music.dispatcher)music.dispatcher.end();
+		vc.join().then(connection => connection.channel.leave());
 	},
 	get p(){ return this.play; },
 	get s(){ return this.skip; },
 	get q(){ return this.queue; },
-	get np(){ return this.nowPlaying; }
+	get np(){ return this.nowplaying; }
 };
-const youtube = {
-	search: (query, maxResults) => new Promise(resolve => {
-		request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
-			if(err)errorHandler(err);
-			console.log(res.statusCode);
-			resolve(JSON.parse(body).items);
-		});
-	})
-};
-const musicListeners = {
-	next: (connection, channel) => {
+const setupMusic = id => {
+	const guild = guilds[id] = { music: new EventEmitter() },
+		music = guild.music;
+	music.queue = [];
+	music.on("next", (connection, channel) => {
 		const music = guilds[channel.guild.id].music;
 		const vid = music.queue.shift(),
 			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id.videoId, { filter: "audioonly" });
 		music.nowPlaying = vid;
 		music.dispatcher = connection.playStream(stream).once("end", () => {
 			music.nowPlaying = music.dispatcher = false;
-			if(!music.queue.length)return connection.channel.leave(); 
-			music.emit("next", connection, channel);
+			if(music.queue.length)return music.emit("next", connection, channel);
+			connection.channel.leave();
+			channel.send("End of queue.");
 		});
-		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.title }.`);
-	}
-};
-const setupMusic = id => {
-	const guild = guilds[id] = { music: new EventEmitter() },
-		music = guild.music;
-	music.queue = music.queue || [];
-	music.on("next", musicListeners.next);
+		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`);
+	});
 };
 const print = (channel, limit, i = 1) => channel.send(i).then(() => (i < limit) ? print(channel, limit, i+1) : null);
-
 const getCommand = content => content.startsWith(prefix) ? content.slice(prefix.length, (content.indexOf(" ", prefix.length)+1 || content.length+1)-1) : "";
 const processMsg = (content, cmd) => {
 	const params = content.slice(prefix.length + cmd.length + 1).split(" ");
@@ -149,42 +205,40 @@ const processMsg = (content, cmd) => {
 };
 const getMembers = (mentions, guild) => {
 	let members = [];
-	if(typeof mentions !== "string")for(let i = 0; i < mentions.length; i++)members[i] = guild.members.get(mentions[i].replace(/\D/g, ""));
-		else members = guild.members.get(mentions.replace(/\D/g, ""));
+	if(typeof mentions === "string")members = guild.member(mentions.replace(/\D/g, ""));
+		else for(let i = 0; i < mentions.length; i++)members[i] = guild.member(mentions[i].replace(/\D/g, ""));
 	return members;
 };
-const checkPerms = (perm, msg) => {
-	if(perm){
-		if(msg.guild.member(client.user).hasPermission(perm))return true;
-			else msg.channel.send("I don't have the permission: " + perm);
-	}else return true;
-};
+const checkPerms = (perm, msg) => perm ? msg.guild.me.hasPermission(perm) : true;
 const hasPerm = (mem, perm) => mem ? mem.hasPermission(perm) : false;
 const errorHandler = (err, msg, e) => {
-	if(!err || err.message.includes("Provided too few or too many messages to delete."))return;
-	if(err.message.includes("Privilege is too low...")){
+	if(!err ||
+		err.message === "Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete." ||
+		err.message === "Cannot send an empty message"
+	)return;
+	if(err.message === "Privilege is too low..."){
 		msg.channel.send(`Cannot ${ e } anyone higher than me.`);
 		return true;
 	}
-	if(err.message.includes("nick: Must be 32 or fewer in length.")){
+	if(err.message === "Invalid Form Body\nnick: Must be 32 or fewer in length."){
 		msg.channel.send("Too long nickname.")
 		return true;
 	}
-	fs.appendFile("log.txt", `${ err.stack }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
+	fs.appendFile("log.txt", `${ err.stack || err }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
 	return false;
 };
-const addPlayer = (id, players) => {
+const accessPlayer = (id, isWorking, difference = 0) => {
+	const addPlayer = (id, players) => {
 		if(!players[id]){
 			players[id] = {balance: 0, energyTimer: Date.now(), workExp: 0, job: cache.jobs.Unemployed, jobName: "Unemployed"};
 			cache.players = players;
 			return players[id];
 		}else return false;
-}; 
-const accessPlayer = (id, isWorking, difference = 0) => {
+	};  
 	const path = "players.json",
 		time = Date.now(),
 		players = cache.players,
-		player = players[id] ? players[id] : addPlayer(id, players);
+		player = players[id] || addPlayer(id, players);
 	let timeLeft = (player.energyTimer - time) / 300000;
 	const energy = 100 - (~~timeLeft < 0 ? timeLeft = 0 : ~~timeLeft),
 		energyRequired = player.job.energyRequired;
@@ -211,7 +265,7 @@ const accessPlayer = (id, isWorking, difference = 0) => {
 		all: players
 	};
 };
-const clearMsg = (channel, i, resolve) => channel.bulkDelete((i < 100) ? i : (i === 101) ? i++-2 : 100, true).then(() => (i > 100) ? clearMsg(channel, i-100) : resolve()).catch(errorHandler);
+const clearMsg = (channel, i) => channel.bulkDelete((i < 100) ? i : (i === 101) ? i++-2 : 100, true).then(() => (i > 100) ? clearMsg(channel, i-100) : null).catch(errorHandler);
 const forceDelete = (messages, i = 0) => messages[i].delete().then(() => forceDelete(messages, i+1));
 const commands = {
 	// Mod Commands
@@ -285,10 +339,10 @@ const commands = {
 			if(msg.author.id === "250140362880843776" || msg.author.id === "306031216208117760"){
 				if(flags.includes("clear"))return fs.writeFile("log.txt", "", err => {
 					if(err)throw err;
-					resolve("Log cleared.");
+					resolve("Error log cleared.");
 				});
 				if(flags.includes("log"))return resolve(eval(`console.log(${ params });`));
-				resolve(eval(params));
+				eval(params);
 			}else resolve("You are not Joe >:(");
 		}),
 		info: "Only for Me :D",
@@ -296,15 +350,14 @@ const commands = {
 	},
 	mod: null,
 	// Normal Commands
-	music: { // Implement queue + Clean up code
+	music: {
 		run: (msg, params) => new Promise(resolve => {
 			params = params.split(" ");
 			const musicCmd = musicCmds[params.shift().toLowerCase()];
 			resolve(musicCmd ? musicCmd(guilds[msg.guild.id].music, msg, params.join(" ")) : "Invalid music command.");
 		}),
 		info: "Plays music.",
-		requiresGuild: true,
-		hide: true
+		requiresGuild: true
 	},
 	jobs: {
 		run: (msg, params) => new Promise(resolve => {
@@ -314,9 +367,9 @@ const commands = {
 					players = cache.players;
 				if(!job)return resolve("No such job.");
 				if(player.workExp < job.workRequired)return resolve("You must have more work experience to qualify for this job!");
-				cache.players[msg.author.id].job = job;
-				cache.players[msg.author.id].jobName = params;
-				cache.players = cache.players;
+				players[msg.author.id].job = job;
+				players[msg.author.id].jobName = params;
+				cache.players = players;
 				resolve(`You are now a ${ params }!`);
 			}else{
 				const jobs = cache.jobs;		
@@ -382,10 +435,6 @@ const commands = {
 		run: (msg, params) => Promise.resolve(params || "I got nothing to say."),
 		info: "Says what you said."
 	},
-	kys: {
-		run: () => Promise.resolve("kys coleader"),
-		info: "Dicks out for coco"
-	}, 
 	help: { 
 		run: msg => new Promise(resolve => {
 			let message = "",
@@ -421,21 +470,21 @@ const autoRespond = {
 
 client.on('message', message => { 
 	if(message.author.bot || readyState < 2)return;
-	const cmd = getCommand(message.content).toLowerCase(),
-		command = commands[cmd],
+	const command = getCommand(message.content).toLowerCase(),
+		cmd = commands[command],
 		reply = autoRespond[message.content.toLowerCase()];
-	if(command){
-		if(command.requiresGuild && !message.guild)return;
-		const msg = processMsg(message.content, cmd),
+	if(cmd){
+		if(cmd.requiresGuild && !message.guild)return;
+		const msg = processMsg(message.content, command),
 			params = msg.content;
 			flags = msg.flags;
 		if(flags.includes("del")){
 			message.delete();
 			message.content = message.content.slice(0, -6);
 		}
-		const hasPermission = command.perms ? hasPerm(message.member, command.perms) : true,
-			respond = checkPerms(command.perms, message) ? (hasPermission ? command.run(message, params, flags) : Promise.resolve("You don't have enough permissions >:(")) : Promise.resolve(false);
-		respond.then(msg => msg ? message.channel.send(msg) : null).catch(err => errorHandler(err, message, command.e));
+		const hasPermission = (cmd.selfPerms || cmd.perms) ? hasPerm(message.member, cmd.selfPerms || cmd.perms) : true,
+			respond = checkPerms(cmd.perms, message) ? (hasPermission ? cmd.run(message, params, flags) : Promise.resolve("You don't have enough permissions >:(")) : Promise.resolve(false);
+		respond.then(msg => msg ? message.channel.send(msg.content || msg, msg.options).then(m => msg.delete ? m.delete(msg.delete) : null) : null).catch(err => errorHandler(err, message, cmd.e));
 	}else if(reply)message.channel.send(reply(message));
 });
 
