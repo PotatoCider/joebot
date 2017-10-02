@@ -1,8 +1,10 @@
-const Discord = require('discord.js'),
+const
+	Discord = require('discord.js'),
 	client = new Discord.Client(),
 	fs = require('fs'),
 	ytdl = require('ytdl-core'),
 	fetchYoutubeInfo = require('youtube-info'),
+	getYoutubeId = require('get-youtube-id'),
 	request = require('request'),
 	EventEmitter = require('events');
 let prefix, readyState = 0;
@@ -15,12 +17,16 @@ let prefix, readyState = 0;
 	Improve help command to further give info on how to use command.
 	Create -debug command to debug all commands. 
 	Use SQL Databases 
+		** or setup JSON cache queuing to eliminate race conditions 
 	Add Salary system(Using your daily energy)
 		- Achievements
 		- Education
 		- Promotion (Done!)
 	Add ignore channels
 	When joined a guild, send message and tell the admins which commands need which permissions
+	Add a permissions system where admin can restrict commands from certain roles/players
+	User created commands?
+
 */
 const cache = {
 	update: key => new Promise(resolve => { 
@@ -50,8 +56,13 @@ const cache = {
 	})
 };
 const guilds = {};
-const randomColor = () => "#" + (~~(Math.random() * 16777215)).toString(16);
-const convertTime = ({ms = 0, s = 0, m = 0, h = 0, d = 0}) => {
+const randomColor = () => {
+	const letters = "0123456789abcdef";
+	let color = "#"; // ITS COLOUR NOT COLOR
+	for(let i = 0; i < 6; i++)color += letters[~~(Math.random() * 16)];
+	return color;
+}
+const resolveTime = ({ms = 0, s = 0, m = 0, h = 0, d = 0, format = false}) => {
 	s += ~~(ms / 1000);
 	ms %= 1000;
 	m += ~~(s / 60);
@@ -60,24 +71,40 @@ const convertTime = ({ms = 0, s = 0, m = 0, h = 0, d = 0}) => {
 	m %= 60;
 	d += ~~(h / 24);
 	h %= 24;
+	if(format){
+		return (
+			(d && format.d ? `${d}d ` : "") + 
+			(h && format.h ? `${h}h ` : "") + 
+			(m && format.m ? `${m}m ` : "") + 
+			(s && format.s ? `${s}s ` : "") + 
+			(ms && format.ms ? `${ms}ms `: "")
+			).slice(0, -1);
+	} 
 	return {ms:ms, s:s, m:m, h:h, d:d};
 }
-const musicCmds = { // CHECK PERMISSIONS FOR THIS COMMANDS!!11!!183u129dhe32dy32dg6732d!He2187d329u8
-	play: (music, message, query) => new Promise(resolve => { // Add playlist support
-		if(!query)return resolve("You must provide a link/title to play a video!");
-		const youtubeSearch = (query, maxResults) => new Promise(resolve => {
-			const endIndex = query.indexOf("&"),
-				isUrl = query.includes("youtube.com/watch?v=");
-			query = isUrl ? query.slice(query.indexOf("="), (endIndex + 1 || query.length + 1) - 1) : query;
-			request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
-				if(err)errorHandler(err);
-				const items = JSON.parse(body).items;
-				if(isUrl || items.length === 1)return resolve(items[0]);
-				resolve(items);
-			});
-		}),
-			numbers = ["1⃣","2⃣","3⃣","4⃣","5⃣","❌"],
-			queueAdd = (vid, vc, selfVc, r, m, msg, mDelete) => {
+const musicCmds = { // Add Perms
+	play: (music, message, query, flags) => new Promise(resolve => { // Add playlist support
+		const 
+			youtubeSearch = (query, maxResults) => new Promise(resolve => {
+				const isPlaylist = query.includes("youtube.com/playlist");
+				if(isPlaylist){
+					const
+						index = query.indexOf("list=") + 5,
+						id = query.slice(index, index + 34);
+					request(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50`)
+				}else{
+					const id = getYoutubeId(query, { fuzzy: false });
+					request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(id || query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
+						if(err)errorHandler(err);
+						const items = JSON.parse(body).items;
+						resolve(id || items.length === 1 ? items[0] : items);
+					});
+				}
+			}),
+			vc = message.member.voiceChannel,
+			selfVc = message.guild.me.voiceChannel,
+			options = ["1⃣","2⃣","3⃣","4⃣","5⃣","❌"],
+			queueAdd = (vid, r, m, msg, mDelete) => {
 				if(r){
 					clearTimeout(mDelete);
 					r.stop();
@@ -85,66 +112,83 @@ const musicCmds = { // CHECK PERMISSIONS FOR THIS COMMANDS!!11!!183u129dhe32dy32
 					msg.delete();
 				}
 				if(!vid)return resolve({ content: "Music selection cancelled.", delete: 3000 });
-				if(!vc && !selfVc)return resolve({ content: "You/I must be in a voice channel first!", delete: 3000 });
-				music.queue.push(vid);	
+				let content = "";
+				if(vid !== "play"){
+					content = `**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`;
+					music.queue.push(vid);
+				}
+				if(!vc && !selfVc)return resolve({ content: content + "\n\nYou/I must be in a voice channel first!", delete: 15000 });
+				if(!vc.joinable)return resolve({ content: content + "\n\nNo permission to join your current voice channel.", delete: 15000 });
+				resolve({ content: content, delete: 5000 });
 				(vc || selfVc).join().then(connection => music.nowPlaying ? null : music.emit("next", connection, message.channel));
-				resolve({ content: `**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`, delete: 3000 });
 			};
-		youtubeSearch(query, 5).then(results => {
-			if(!results)return resolve("No results found.");
-			if(!Array.isArray(results))return queueAdd(results, message.member.voiceChannel, message.guild.me.voiceChannel);
+		if(music.queue.length && !query)return vc.join().then(connection => queueAdd("play"));
+		if(!query)return resolve("You must provide a link/title to play a video!");
+		youtubeSearch(query, 5).then(results => { // Add multiple pages
+			if(!(results instanceof Array))return queueAdd(results);
+			if(!results.length)return resolve("No results found.");
+			flags = flags.filter(n => n >= 1 && n <= 5);
+			if(flags.length)return queueAdd(results[flags[0] - 1]);
 			const embed = new Discord.RichEmbed()
-				.setAuthor("Youtube", cache.images.yt) // Add setAuthor
+				.setAuthor("Youtube", cache.images.yt) 
 				.setFooter(`This selection will timeout in 15 seconds. Type "cancel" to cancel | Requested by ${ message.author.tag }`)
 				.setThumbnail(cache.images.music)
 				.setColor(randomColor());
 			for(let i = 0; i < results.length; i++){
 				const result = results[i].snippet;
-				embed.addField(`**Option ${ numbers[i] }**:`, `**[${ result.title }](https://www.youtube.com/watch?v=${ results[i].id.videoId }) by** [${ result.channelTitle }](https://www.youtube.com/channel/${ result.channelId })`); 
+				embed.addField(`**Option ${ options[i] }**:`, `**[${ result.title }](https://www.youtube.com/watch?v=${ results[i].id.videoId }) by** [${ result.channelTitle }](https://www.youtube.com/channel/${ result.channelId })`); 
 			}
 			message.channel.send({ embed: embed }).then(msg => { 
-				const	setOptions = (i = 0) => msg.react(numbers[i]).then(() => i < results.length ? setOptions(i+1) : null).catch(e => e.message === "Unknown Message" ? null : errorHandler(e)),
+				const 
+					setOptions = (i = 0) => msg.react(options[i]).then(() => i < results.length ? setOptions(i+1) : null),
 					r = msg.createReactionCollector( 
-						(reaction, user) => numbers.includes(reaction.emoji.name) && user.id === message.author.id,
+						(reaction, user) => options.includes(reaction.emoji.name) && user.id === message.author.id,
 						{ time: 15000 }
 					),
 					m = msg.channel.createMessageCollector(
 						msg => msg.author.id === message.author.id && msg.content >= 1 && msg.content <= 5 && !(msg.content % 1) || msg.content === "cancel",
 						{ time: 15000 }
 					),
-					vc = message.member.voiceChannel,
-					selfVc = msg.guild.me.voiceChannel,
 					mDelete = setTimeout(() => {
 						msg.clearReactions();
 						msg.edit("Music selection has timed out.", { embed: {} });
 						msg.delete(5000);
 					}, 15000);
 				setOptions();
-				r.once("collect", reaction => queueAdd(results[reaction.emoji.name.slice(0, 1) - 1], vc, selfVc, r, m, msg, mDelete));
-				m.once("collect", message => queueAdd(results[message.content - 1], vc, selfVc, r, m, msg, mDelete));
+				r.once("collect", reaction => queueAdd(results[reaction.emoji.name.slice(0, 1) - 1], r, m, msg, mDelete));
+				m.once("collect", message => queueAdd(results[message.content - 1], r, m, msg, mDelete));
 			});
 		});
 	}),
-	skip: music => { // TODO: Add Permissions + Skip at index n of queue
-		if(!music.nowPlaying)return "No songs in queue to skip.";
+	skip: (music, msg, i) => { // TODO: Add Permissions
+		if(i){
+			if(isNaN(i) || i < 1 || i > music.queue.length)return "Please choose a valid index.";
+			music.queue.splice(i - 1, 1);
+			return `Removed **\`${ music.queue[i - 1].snippet.title }\`** from queue.`;
+		}
+		if(!music.nowPlaying)return "No songs currently playing";
+		let content = `Skipped **\`${ music.nowPlaying.snippet.title }\`**.`;
+		if(music.nowPlaying && !music.queue.length)music.nowPlaying = false;
 		music.dispatcher.end();
+		if(music.repeat)music.queue.pop();
+		return {content: content, delete: 5000};
 	},
-	queue: music => {
-		const queue = music.queue;
-		let message = musicCmds.nowPlaying(music);
+	queue: music => { // TODO: RICH EMBED THIS
+		const queue = music.queue,
+			np = musicCmds.nowplaying(music);
+		let message = (music.nowPlaying ? np : "") + (music.queue.length ? "" : "Queue is empty.");
 		for(let i = 0; i < queue.length; i++){
 			const vid = queue[i].snippet;
 			message += `**${ i+1 }**: **\`${ vid.title }\` by** ${ vid.channelTitle }\n`;
 		}
 		return message;
 	},
-	nowplaying: (music, msg) => { // TODO: Add more infomation about video
+	nowplaying: (music, msg) => {
 		if(!music.nowPlaying)return "There is nothing playing now.";
 		const np = music.nowPlaying.snippet;
 		if(!msg)return `**Now playing**: **\`${ np.title }\` by** ${ np.channelTitle }\n\n`;
 		fetchYoutubeInfo(music.nowPlaying.id.videoId).then(vid => {
-			const { s:s, m:m, h:h, d:d } = convertTime({ s: vid.duration }),
-				embed = new Discord.RichEmbed()
+			const embed = new Discord.RichEmbed()
 				.setAuthor("Youtube", cache.images.yt)
 				.setThumbnail(vid.thumbnailUrl)
 				.setColor(randomColor())
@@ -153,38 +197,48 @@ const musicCmds = { // CHECK PERMISSIONS FOR THIS COMMANDS!!11!!183u129dhe32dy32
 				.addField("Owner", vid.owner, true)
 				.addField("Views", vid.views, true)
 				.addField("Genre", vid.genre, true)
-				.addField("Time", (d ? `${d}d ` : "") + (h ? `${h}h ` : "") + (m ? `${m}m ` : "") + (s ? `${s}s` : ""), true);
+				.addField("Total Time", resolveTime({ s: vid.duration, format: { s:1, m:1, h:1, d:1 }}), true)
+				.addField("Current Time", resolveTime({ ms: music.dispatcher.time, format: { s:1, m: 1, h:1, d:1 }}), true);
 			msg.channel.send({ embed: embed });
 		});
 	},
+	repeat: music => ({ content: `:notes: | Music is no${ (music.repeat ^= true) ? "w" : " longer" } on repeat!`, delete: 5000 }),
 	leave: (music, msg) => {
-		const vc = msg.guild.me.voiceChannel;
+		const vc = msg.guild.me.voiceChannel
 		if(!vc)return "No voice channel to leave.";
+		let content;
 		music.queue = [];
+		music.nowPlaying = false;
 		if(music.dispatcher)music.dispatcher.end();
 		vc.join().then(connection => connection.channel.leave());
+		return content;
 	},
+	pause: music => music.dispatcher.pause(),
+	resume: music => music.dispatcher.resume(),
 	get p(){ return this.play; },
 	get s(){ return this.skip; },
 	get q(){ return this.queue; },
-	get np(){ return this.nowplaying; }
+	get np(){ return this.nowplaying; },
+	get clear(){ return this.leave; },
+	get stop(){ return this.leave; },
+	get continue(){ return this.resume; }
 };
 const setupMusic = id => {
 	const guild = guilds[id] = { music: new EventEmitter() },
 		music = guild.music;
 	music.queue = [];
 	music.on("next", (connection, channel) => {
-		const music = guilds[channel.guild.id].music;
 		const vid = music.queue.shift(),
 			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id.videoId, { filter: "audioonly" });
 		music.nowPlaying = vid;
 		music.dispatcher = connection.playStream(stream).once("end", () => {
-			music.nowPlaying = music.dispatcher = false;
+			if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
+			music.nowPlaying = music.dispatcher = null;
 			if(music.queue.length)return music.emit("next", connection, channel);
 			connection.channel.leave();
-			channel.send("End of queue.");
+			channel.send("End of queue.").then(msg => msg.delete(7500));
 		});
-		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`);
+		channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`).then(msg => msg.delete(5000));
 	});
 };
 const print = (channel, limit, i = 1) => channel.send(i).then(() => (i < limit) ? print(channel, limit, i+1) : null);
@@ -209,12 +263,16 @@ const getMembers = (mentions, guild) => {
 		else for(let i = 0; i < mentions.length; i++)members[i] = guild.member(mentions[i].replace(/\D/g, ""));
 	return members;
 };
-const checkPerms = (perm, msg) => perm ? msg.guild.me.hasPermission(perm) : true;
-const hasPerm = (mem, perm) => mem ? mem.hasPermission(perm) : false;
+const missingPerms = (channel, perms, mem) => {
+	if(!perms)return [];
+	const totalPerms = channel.permissionsFor(mem);
+	return totalPerms ? totalPerms.missing(perms instanceof Array ? perms : [perms]) : []; 
+};
 const errorHandler = (err, msg, e) => {
 	if(!err ||
-		err.message === "Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete." ||
-		err.message === "Cannot send an empty message"
+		err.message === "Provided too few or too many messages to delete. Must provide at least 2 and at most 100 messages to delete." ||
+		err.message === "Cannot send an empty message" ||
+		err.message === "Unknown Message"
 	)return;
 	if(err.message === "Privilege is too low..."){
 		msg.channel.send(`Cannot ${ e } anyone higher than me.`);
@@ -224,7 +282,7 @@ const errorHandler = (err, msg, e) => {
 		msg.channel.send("Too long nickname.")
 		return true;
 	}
-	fs.appendFile("log.txt", `${ err.stack || err }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
+	fs.appendFile("log.txt", `${ err.stack || err }\nMessage: ${ err.message }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => { if(error)throw error; console.log("log updated"); });
 	return false;
 };
 const accessPlayer = (id, isWorking, difference = 0) => {
@@ -279,7 +337,8 @@ const commands = {
 		}),
 		perms: "BAN_MEMBERS",
 		info: "Bans someone.",
-		e: "ban"
+		e: "ban",
+		requiresGuild: true
 	},
 	kick: {
  		run: (msg, params) => new Promise(resolve => {
@@ -291,7 +350,8 @@ const commands = {
 		}),
 		perms: "KICK_MEMBERS",
 		info: "Kicks someone.",
-		e: "kick"
+		e: "kick",
+		requiresGuild: true
 	},
 	role: {
 		run: (msg, params) => new Promise(resolve => {
@@ -305,7 +365,8 @@ const commands = {
 		}),
 		perms: "MANAGE_ROLES",
 		info: "Add/Removes a role from a member.",
-		e: "edit role of"
+		e: "edit role of",
+		requiresGuild: true
 	},
 	nick: {
 		run: (msg, params) => new Promise(resolve => {
@@ -313,11 +374,12 @@ const commands = {
 			const member = getMembers(params.shift(), msg.guild),
 				nick = params.join(" ");
 			if(!member)return resolve("Changed nobody's nick.");
-			resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem.user.tag }'s nickname ${ nick ? "to " + nick : "" }.`));
+			resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem.user.tag }'s nickname${ nick ? " to " + nick : "" }.`));
 		}),
 		perms: "MANAGE_NICKNAMES",
 		info: "Changes someone's nick.",
-		e: "nick"
+		e: "nick",
+		requiresGuild: true
 	},
 	clear: {
 		run: (msg, params, flags) => new Promise(resolve => {
@@ -332,16 +394,18 @@ const commands = {
 			clearMsg(msg.channel, param+1, resolve);
 		}),
 		perms: "MANAGE_MESSAGES",
-		info: "Deletes x messages."
+		info: "Deletes x messages.",
+		requiresGuild: true
 	},
 	eval: {
-		run: (msg, params, flags) => new Promise(resolve => { // TODO: --log flag for testing output operations.
+		run: (msg, params, flags) => new Promise(resolve => { 
 			if(msg.author.id === "250140362880843776" || msg.author.id === "306031216208117760"){
 				if(flags.includes("clear"))return fs.writeFile("log.txt", "", err => {
 					if(err)throw err;
 					resolve("Error log cleared.");
 				});
-				if(flags.includes("log"))return resolve(eval(`console.log(${ params });`));
+				if(flags.includes("log"))return eval(`console.log(${ params });`);
+				if(flags.includes("send"))return resolve(eval(params));
 				eval(params);
 			}else resolve("You are not Joe >:(");
 		}),
@@ -351,13 +415,14 @@ const commands = {
 	mod: null,
 	// Normal Commands
 	music: {
-		run: (msg, params) => new Promise(resolve => {
+		run: (msg, params, flags) => new Promise(resolve => {
 			params = params.split(" ");
 			const musicCmd = musicCmds[params.shift().toLowerCase()];
-			resolve(musicCmd ? musicCmd(guilds[msg.guild.id].music, msg, params.join(" ")) : "Invalid music command.");
+			resolve(musicCmd ? musicCmd(guilds[msg.guild.id].music, msg, params.join(" "), flags) : "Invalid music command.");
 		}),
 		info: "Plays music.",
-		requiresGuild: true
+		requiresGuild: true,
+		selfPerms: ["MANAGE_MESSAGES", "ADD_REACTIONS"]
 	},
 	jobs: {
 		run: (msg, params) => new Promise(resolve => {
@@ -382,6 +447,7 @@ const commands = {
 			}
 		}),
 		info: "Job options.",
+		requiresGuild: true
 	},
 	work: {
 		run: msg => new Promise(resolve => {
@@ -392,7 +458,8 @@ const commands = {
 				resolve(`:moneybag: | You have to wait **${ (m ? m + " minute" + (m === 1 ? "" : "s") : "") + (m && s ? " and " : "") + (s ? s + " second" + (s === 1 ? "" : "s") : "") }** to work again.\nYour current energy level is ${ player.energy } and you need " + player.energyNeeded + " more energy to work.`);
 			}else resolve(player.salary ? `:moneybag: | You worked hard and earned yourself ${ player.salary } pennies.\nYour current energy level is ${ player.energy }(-${ player.energyUsed } energy)(+${ player.expGained } Work Exp)` : "You are unemployed.");
 		}),
-		info: "You go work to earn some pennies."
+		info: "You go work to earn some pennies.",
+		requiresGuild: true
 	},
 	energy: {
 		run: msg => Promise.resolve(`You have ${ accessPlayer(msg.author.id).energy } energy.`),
@@ -435,15 +502,18 @@ const commands = {
 		run: (msg, params) => Promise.resolve(params || "I got nothing to say."),
 		info: "Says what you said."
 	},
-	help: { 
+	help: { // Add in "Guilds" Section for guild required commmands
 		run: msg => new Promise(resolve => {
 			let message = "",
 				isMod = false;
 			for(const key in commands){
-				const cmd = commands[key];
 				if(key === "mod"){
 					if(isMod)message = "**Moderator Commands:**\n\n" + message;
-				}else if((cmd.perms ? hasPerm(msg.member, cmd.perms) : true) && !cmd.hide && !Object.getOwnPropertyDescriptor(commands, key).get){
+					continue;
+				}
+				const cmd = commands[key],
+					missing = missingPerms(msg.channel, cmd.perms, msg.member);
+				if(!missing.length && !cmd.hide && !Object.getOwnPropertyDescriptor(commands, key).get){
 					message = "`" + key + "`: " + cmd.info + "\n\n" + message;
 					isMod = true;
 				}
@@ -462,30 +532,22 @@ const commands = {
 	get m(){ return this.music; }	
 };
 
-const autoRespond = {
-	hi: msg => "Hello, <@" + msg.author.id + ">!",
-	"prefix?": () => 'My prefix is "-".',
-	get hello() { return this.hi; }
-};
-
-client.on('message', message => { 
-	if(message.author.bot || readyState < 2)return;
-	const command = getCommand(message.content).toLowerCase(),
-		cmd = commands[command],
-		reply = autoRespond[message.content.toLowerCase()];
-	if(cmd){
-		if(cmd.requiresGuild && !message.guild)return;
-		const msg = processMsg(message.content, command),
-			params = msg.content;
-			flags = msg.flags;
-		if(flags.includes("del")){
-			message.delete();
-			message.content = message.content.slice(0, -6);
-		}
-		const hasPermission = (cmd.selfPerms || cmd.perms) ? hasPerm(message.member, cmd.selfPerms || cmd.perms) : true,
-			respond = checkPerms(cmd.perms, message) ? (hasPermission ? cmd.run(message, params, flags) : Promise.resolve("You don't have enough permissions >:(")) : Promise.resolve(false);
-		respond.then(msg => msg ? message.channel.send(msg.content || msg, msg.options).then(m => msg.delete ? m.delete(msg.delete) : null) : null).catch(err => errorHandler(err, message, cmd.e));
-	}else if(reply)message.channel.send(reply(message));
+client.on('message', msg => { 
+	if(msg.author.bot || readyState < 2)return;
+	let content = msg.content;
+	const channel = msg.channel,
+		command = getCommand(content).toLowerCase(),
+		cmd = commands[command];
+	if(!cmd)return;
+	if(cmd.requiresGuild && !msg.guild)return msg.channel.send("This command can only be used in guilds!");
+	const { content: params, flags: flags } = processMsg(content, command);
+	if(flags.includes("del"))msg.delete();
+	const missing = msg.guild ? missingPerms(channel, cmd.perms, msg.member) : [],
+		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [],
+		run = selfMissing.length ? Promise.resolve(`I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`) : (missing.length ?  Promise.resolve("You don't have enough permissions >:(") : cmd.run(msg, params, flags));
+	run.then(output => output ? channel.send(output.content || output, output.options)
+	.then(m => output.delete ? m.delete(output.delete) : null) : null)
+	.catch(err => errorHandler(err, msg, cmd.e));
 });
 
 client.on("guildCreate", guild => setupMusic(guild.id));
@@ -506,7 +568,7 @@ cache.update().then(() => {
 	});
 });
 
-process.on("unhandledRejection", console.error);
+process.on("unhandledRejection", errorHandler);
 /*
 	Permissions:
 	ADMINISTRATOR (implicitly has all permissions, and bypasses all channel overwrites)

@@ -4,7 +4,7 @@
 
 # Join the community!
 
-Aeris and Joseph is in continuous development, and it’s supported by an active community which produces new content for everyone to enjoy. New features are constantly added. Stay tuned by [joining the official server](https://discord.gg/vmggaYn)!
+New features are constantly added. Stay tuned by [joining the official server](https://discord.gg/vmggaYn)!
 
 Undergoing Constant Development.
 # License
