@@ -86,12 +86,18 @@ const musicCmds = { // Add Perms
 	play: (music, message, query, flags) => new Promise(resolve => { // Add playlist support
 		const 
 			youtubeSearch = (query, maxResults) => new Promise(resolve => {
-				const isPlaylist = query.includes("youtube.com/playlist");
+				const isPlaylist = query.includes("youtube.com/playlist?");
 				if(isPlaylist){
 					const
 						index = query.indexOf("list=") + 5,
 						id = query.slice(index, index + 34);
-					request(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50`)
+					if(id.length !== 34 || id.includes("&"))return resolve("Invalid playlist.");
+					request(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${ encodeURIComponent(id) }&key=${ cache.config.yt_api_key }&items(snippet(channelId%2CchannelTitle%2CplaylistId%2CresourceId%2FvideoId%2Ctitle))`, 
+						(err, res, body) => {
+							if(err)errorHandler(err);
+							const items = JSON.parse(body).items;
+							resolve({ items: items, playlist: true });
+						});
 				}else{
 					const id = getYoutubeId(query, { fuzzy: false });
 					request(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${ maxResults }&q=${ encodeURIComponent(id || query) }&key=${ cache.config.yt_api_key }`, (err, res, body) => {
@@ -104,12 +110,13 @@ const musicCmds = { // Add Perms
 			vc = message.member.voiceChannel,
 			selfVc = message.guild.me.voiceChannel,
 			options = ["1⃣","2⃣","3⃣","4⃣","5⃣","❌"],
-			queueAdd = (vid, r, m, msg, mDelete) => {
+			queueAdd = (vid, r, m, msg, userMsg, mDelete) => {
 				if(r){
 					clearTimeout(mDelete);
 					r.stop();
 					m.stop();
 					msg.delete();
+					userMsg.delete();
 				}
 				if(!vid)return resolve({ content: "Music selection cancelled.", delete: 3000 });
 				let content = "";
@@ -121,10 +128,17 @@ const musicCmds = { // Add Perms
 				if(!vc.joinable)return resolve({ content: content + "\n\nNo permission to join your current voice channel.", delete: 15000 });
 				resolve({ content: content, delete: 5000 });
 				(vc || selfVc).join().then(connection => music.nowPlaying ? null : music.emit("next", connection, message.channel));
+			},
+			playlistAdd = (videos) => {
+				music.queue.push(...videos);
+				resolve({ content: `Added **${ videos.length } items** to queue from https://www.youtube.com/playlist?list=${ videos[0].snippet.playlistId }`});
+				queueAdd("play");
 			};
 		if(music.queue.length && !query)return vc.join().then(connection => queueAdd("play"));
 		if(!query)return resolve("You must provide a link/title to play a video!");
 		youtubeSearch(query, 5).then(results => { // Add multiple pages
+			if(typeof results === "string")return resolve({ content: results, delete: 7500 });
+			if(results.playlist)return playlistAdd(results.items);
 			if(!(results instanceof Array))return queueAdd(results);
 			if(!results.length)return resolve("No results found.");
 			flags = flags.filter(n => n >= 1 && n <= 5);
@@ -152,11 +166,11 @@ const musicCmds = { // Add Perms
 					mDelete = setTimeout(() => {
 						msg.clearReactions();
 						msg.edit("Music selection has timed out.", { embed: {} });
-						msg.delete(5000);
+						msg.delete(7500);
 					}, 15000);
 				setOptions();
-				r.once("collect", reaction => queueAdd(results[reaction.emoji.name.slice(0, 1) - 1], r, m, msg, mDelete));
-				m.once("collect", message => queueAdd(results[message.content - 1], r, m, msg, mDelete));
+				r.once("collect", reaction => queueAdd(results[reaction.emoji.name.slice(0, 1) - 1], r, m, msg, message, mDelete));
+				m.once("collect", message => queueAdd(results[message.content - 1], r, m, msg, message, mDelete));
 			});
 		});
 	}),
@@ -184,10 +198,12 @@ const musicCmds = { // Add Perms
 		return message;
 	},
 	nowplaying: (music, msg) => {
+		const 
+			np = music.nowPlaying,
+			snippet = np.snippet;
 		if(!music.nowPlaying)return "There is nothing playing now.";
-		const np = music.nowPlaying.snippet;
-		if(!msg)return `**Now playing**: **\`${ np.title }\` by** ${ np.channelTitle }\n\n`;
-		fetchYoutubeInfo(music.nowPlaying.id.videoId).then(vid => {
+		if(!msg)return `**Now playing**: **\`${ snippet.title }\` by** ${ snippet.channelTitle }\n\n`;
+		fetchYoutubeInfo(np.id.videoId || snippet.resourceId.videoId).then(vid => {
 			const embed = new Discord.RichEmbed()
 				.setAuthor("Youtube", cache.images.yt)
 				.setThumbnail(vid.thumbnailUrl)
@@ -229,7 +245,7 @@ const setupMusic = id => {
 	music.queue = [];
 	music.on("next", (connection, channel) => {
 		const vid = music.queue.shift(),
-			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id.videoId, { filter: "audioonly" });
+			stream = ytdl("https://www.youtube.com/watch?v=" + (vid.id.videoId || vid.snippet.resourceId.videoId), { filter: "audioonly" });
 		music.nowPlaying = vid;
 		music.dispatcher = connection.playStream(stream).once("end", () => {
 			if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
@@ -418,6 +434,7 @@ const commands = {
 		run: (msg, params, flags) => new Promise(resolve => {
 			params = params.split(" ");
 			const musicCmd = musicCmds[params.shift().toLowerCase()];
+			msg.delete();
 			resolve(musicCmd ? musicCmd(guilds[msg.guild.id].music, msg, params.join(" "), flags) : "Invalid music command.");
 		}),
 		info: "Plays music.",
