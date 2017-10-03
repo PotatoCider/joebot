@@ -92,7 +92,7 @@ const musicCmds = { // Add Perms
 						index = query.indexOf("list=") + 5,
 						id = query.slice(index, index + 34);
 					if(id.length !== 34 || id.includes("&"))return resolve("Invalid playlist.");
-					request(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${ encodeURIComponent(id) }&key=${ cache.config.yt_api_key }&items(snippet(channelId%2CchannelTitle%2CplaylistId%2CresourceId%2FvideoId%2Ctitle))`, 
+					request(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${ encodeURIComponent(id) }&key=${ cache.config.yt_api_key }&fields=items(snippet(channelId%2CchannelTitle%2CplaylistId%2CresourceId%2FvideoId%2Ctitle))`, 
 						(err, res, body) => {
 							if(err)errorHandler(err);
 							const items = JSON.parse(body).items;
@@ -124,6 +124,7 @@ const musicCmds = { // Add Perms
 					content = `**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`;
 					music.queue.push(vid);
 				}
+				console.log(`vc: ${ vc }, \n\n selfVc: ${ selfVc }`);
 				if(!vc && !selfVc)return resolve({ content: content + "\n\nYou/I must be in a voice channel first!", delete: 15000 });
 				if(!vc.joinable)return resolve({ content: content + "\n\nNo permission to join your current voice channel.", delete: 15000 });
 				resolve({ content: content, delete: 5000 });
@@ -131,10 +132,10 @@ const musicCmds = { // Add Perms
 			},
 			playlistAdd = (videos) => {
 				music.queue.push(...videos);
-				resolve({ content: `Added **${ videos.length } items** to queue from https://www.youtube.com/playlist?list=${ videos[0].snippet.playlistId }`});
-				queueAdd("play");
+				const content = queueAdd("play");
+				resolve({ content: `Added **${ videos.length } items** to queue from https://www.youtube.com/playlist?list=${ videos[0].snippet.playlistId }\n${ content }`});
 			};
-		if(music.queue.length && !query)return vc.join().then(connection => queueAdd("play"));
+		if(music.queue.length && !query)return queueAdd("play");
 		if(!query)return resolve("You must provide a link/title to play a video!");
 		youtubeSearch(query, 5).then(results => { // Add multiple pages
 			if(typeof results === "string")return resolve({ content: results, delete: 7500 });
@@ -198,10 +199,9 @@ const musicCmds = { // Add Perms
 		return message;
 	},
 	nowplaying: (music, msg) => {
-		const 
-			np = music.nowPlaying,
-			snippet = np.snippet;
-		if(!music.nowPlaying)return "There is nothing playing now.";
+		const np = music.nowPlaying;
+		if(!np)return "There is nothing playing now.";
+		const snippet = np.snippet;
 		if(!msg)return `**Now playing**: **\`${ snippet.title }\` by** ${ snippet.channelTitle }\n\n`;
 		fetchYoutubeInfo(np.id.videoId || snippet.resourceId.videoId).then(vid => {
 			const embed = new Discord.RichEmbed()
@@ -244,8 +244,9 @@ const setupMusic = id => {
 		music = guild.music;
 	music.queue = [];
 	music.on("next", (connection, channel) => {
+		console.log(music.queue[0]);
 		const vid = music.queue.shift(),
-			stream = ytdl("https://www.youtube.com/watch?v=" + (vid.id.videoId || vid.snippet.resourceId.videoId), { filter: "audioonly" });
+			stream = ytdl("https://www.youtube.com/watch?v=" + (vid.id || vid.snippet.resourceId).videoId, { filter: "audioonly" });
 		music.nowPlaying = vid;
 		music.dispatcher = connection.playStream(stream).once("end", () => {
 			if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
