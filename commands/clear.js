@@ -3,6 +3,7 @@ module.exports = class {
 		this.perms = "MANAGE_MESSAGES";
 		this.info = "Deletes x messages.";
 		this.requiresGuild = true;
+		this.mod = true;
 		this.aliases = ["delete", "del", "prune"];
 	}
 

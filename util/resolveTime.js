@@ -1,4 +1,5 @@
-module.exports = ({ms = 0, s = 0, m = 0, h = 0, d = 0, format = false}) => {
+let resolveTime;
+module.exports = resolveTime = ({ms = 0, s = 0, m = 0, h = 0, d = 0, format = false}) => {
 	s += ~~(ms / 1000);
 	ms %= 1000;
 	m += ~~(s / 60);

@@ -1,9 +1,15 @@
 const fs = require("fs");
 
+let client, guilds, commands, cmdList;
+
 module.exports = class {
-	constructor() {
+	constructor({ client: c, guilds: g, commands: cmd, cmdList: list }) {
 		this.info = "Only for Me :D";
 		this.hide = true;
+		client = c;
+		guilds = g;
+		commands = cmd;
+		cmdList = list;
 	}
 
 	run(msg, params, flags) {

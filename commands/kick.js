@@ -1,4 +1,4 @@
-const getMembers = require("../util/getMembers");
+const [ getMembers ] = require("../util/loadModules.js")("getMembers");
 
 module.exports = class {
 	constructor() {
@@ -6,6 +6,7 @@ module.exports = class {
 		this.info = "Kicks someone.";
 		this.e = "kick";
 		this.requiresGuild = true;
+		this.mod = true;
 	}
 
 	run(msg, params, flags) {

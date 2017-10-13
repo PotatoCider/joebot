@@ -1,9 +1,6 @@
 const
-	fs = require("fs"),
-	Discord = require("discord.js"),
-	cache = require("./util/cache.js"),
-	errorHandler = require("./util/error.js"),
-	{ prefix, token } = require("./config.json"),
+	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, Discord, { token } ]
+		= require("./util/loadModules.js")("fs", "error", "perms", "commandProcessing", "discord.js", "./config");
 	client = new Discord.Client();
 let readyState = 0;
 /*
@@ -15,7 +12,6 @@ let readyState = 0;
 	Improve help command to further give info on how to use command.
 	Create -debug command to debug all commands. 
 	Use SQL Databases 
-		** or setup JSON cache queuing to eliminate race conditions 
 	Add Salary system(Using your daily energy)
 		- Achievements
 		- Education
@@ -25,17 +21,23 @@ let readyState = 0;
 	Add a permissions system where admin can restrict commands from certain roles/players
 	User created commands?
 	
-	Add more comment explain what each block of code does
+	Add comment explain what each block of code does
 */
-const guilds = {};
+const guilds = {}, commands = {}, cmdList = { mod: [], reg: [] };
 
 const loadCommand = (target, module, reload) => new Promise(resolve => {
 	const cmd = module.slice(0, -3),
 		path = "./commands/" + module;
-	if(reload)delete require.cache[require.resolve(path)];
-	target[cmd] = new (require(path))({ client, guilds, commands });
-	const aliases = target[cmd].aliases || [];
-
+	if(reload && target[cmd]){
+		delete require.cache[require.resolve(path)];
+		const cmdType = target[cmd].mod ? "mod" : "reg",
+			cmdIndex = cmdList[cmdType].indexOf(cmd);
+		if(cmdIndex !== -1)cmdList[cmdType].splice(cmdIndex, 1);
+	}
+	const command = target[cmd] = new (require(path))({ client, commands, guilds, cmdList });
+	if(command.mod)cmdList.mod.push(cmd);
+		else cmdList.reg.push(cmd);
+	const aliases = command.aliases || [];
 	for(const alias of aliases)if(!target[alias])Object.defineProperty(target, alias, {
 		get: function() { return this[cmd]; }
 	});
@@ -46,7 +48,12 @@ const loadCommands = (target, reload) => {
 	const cmds = fs.readdirSync("./commands");
 	const loading = [];
 	for(let i = 0; i < cmds.length; i++)loading[i] = loadCommand(target, cmds[i], reload);
-	Promise.all(loading).then(() => { console.log("Commands loaded."); readyState++; });
+	Promise.all(loading).then(() => {
+		console.log("Commands loaded.");
+		readyState++;
+		cmdList.mod.sort();
+		cmdList.reg.sort();
+	});
 	let fsTimeout = false;
 	if(!reload)fs.watch("./commands", "utf-8", (event, module) => {
 		if(event !== "change" || fsTimeout)return;
@@ -56,62 +63,17 @@ const loadCommands = (target, reload) => {
 	});
 }
 
-const getCommand = content => content.startsWith(prefix) ? content.slice(prefix.length, (content.indexOf(" ", prefix.length)+1 || content.length+1)-1) : "";
-const processMsg = (content, cmd) => {
-	const params = content.slice(prefix.length + cmd.length + 1).split(" ");
-	const flags = [];
-	for(let i = params.length - 1; i >= 0; i--){
-		if(params[i].startsWith("--")){
-			flags.push(params[i].slice(2));
-			params.pop();
-		}else break;
-	}
-	return {
-		flags: flags,
-		content: params.join(" ")
-	};
-};
-const missingPerms = (channel, perms, mem) => {
-	if(!perms)return [];
-	const totalPerms = channel.permissionsFor(mem);
-	return totalPerms ? totalPerms.missing(perms instanceof Array ? perms : [perms]) : []; 
-};
-
-const getCmd = cmd => require(`./commands/${ cmd }.js`);
-const commands = {
-	help: { // Add in "Guilds" Section for guild required commmands
-		run: msg => new Promise(resolve => {
-			let message = "",
-				isMod = false;
-			for(const key in commands){
-				if(key === "mod"){
-					if(isMod)message = "**Moderator Commands:**\n\n" + message;
-					continue;
-				}
-				const cmd = commands[key],
-					missing = missingPerms(msg.channel, cmd.perms, msg.member);
-				if(!missing.length && !cmd.hide && !Object.getOwnPropertyDescriptor(commands, key).get){
-					message = "`" + key + "`: " + cmd.info + "\n\n" + message;
-					isMod = true;
-				}
-			}
-			resolve(message);
-		}),
-		info: "Displays this help message."
-	},
-	// Aliases
-	get halp(){ return this.help; }
-};
+// Implement loadUtility
 
 client.on("message", msg => { 
 	if(msg.author.bot)return;
 	const channel = msg.channel,
-		command = getCommand(msg.content).toLowerCase(),
-		cmd = commands[command];
+		cmdName = getCommand(msg.content).toLowerCase(),
+		cmd = commands[cmdName];
 	if(!cmd)return;
 	if(cmd.requiresGuild && !msg.guild)return msg.channel.send("This command can only be used in guilds!");
 
-	const { content, flags } = processMsg(msg.content, command);
+	const { content, flags } = processMsg(msg.content, cmdName);
 	if(flags.includes("del"))msg.delete();
 	const missing = msg.guild ? missingPerms(channel, cmd.perms, msg.member) : [],
 		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [];
@@ -122,19 +84,21 @@ client.on("message", msg => {
 		else run = cmd.run(msg, content, flags);
 
 	run.then(output => output ? channel.send(output.content || output, output.options).then(m => output.delete ? m.delete(output.delete) : null) : null).catch(err => errorHandler(err, msg, cmd.e));
-});
+	})
 
-client.on("guildCreate", guild => setupMusic(guild.id));
+	.on("guildCreate", guild => commands.music.setup(guild.id))
 
-client.on("guildDelete", guild => guilds[guild.id] = null);
+	.on("guildDelete", guild => delete guilds[guild.id])
 
-client.on("error", errorHandler);
+	.on("error", errorHandler)
 
-client.login(token).then(() => {
+	.on("voiceStateUpdate", (oldMem, newMem) => commands.music.vcUpdate(newMem))
+
+	.login(token).then(() => {
 	readyState++;
 	loadCommands(commands);
 	console.log("The bot is online!");
-});
+	});
 
 
 process.on("unhandledRejection", errorHandler);

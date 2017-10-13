@@ -1,16 +1,9 @@
-const 
-	Discord = require("discord.js"),
-	ytdl = require("ytdl-core"),
-	fetchYoutubeInfo = require("youtube-info"),
-	getYoutubeId = require("get-youtube-id"),
-	request = require("request-promise"),
-	resolveTime = require("../util/resolveTime.js"),
-	randomColor = require("../util/randomColor.js"),
-	{ yt_api_key } = require("../config.json"),
-	images = require("../images.json"),
+const
+	[ Discord, ytdl, fetchYoutubeInfo, getYoutubeId, request, resolveTime, randomColor, { yt_api_key }, images ]
+		= require("../util/loadModules")("discord.js", "ytdl-core", "youtube-info", "get-youtube-id", "request-promise", "resolveTime", "randomColor", "./config", "./images");
 
 	musicCmds = { // Add Perms
-		play: (music, message, query, flags) => new Promise(resolve => { // Add playlist support
+		play: (music, message, query, flags) => new Promise(resolve => { 
 			const 
 				vc = message.member.voiceChannel,
 				selfVc = message.guild.me.voiceChannel,
@@ -26,9 +19,10 @@ const
 								url: `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${ encodeURIComponent(id) }&key=${ yt_api_key }&fields=items(snippet(channelId%2CchannelTitle%2CplaylistId%2CresourceId%2FvideoId%2Ctitle))`, 
 								json: true 
 							};
-							request(options).then(body => {
-								resolve({ items: body.items, playlist: true });
-							});
+							
+						request(options).then(body => {
+							resolve({ items: body.items, playlist: true });
+						});
 					}else{
 						const 
 							id = getYoutubeId(query, { fuzzy: false }),
@@ -43,18 +37,18 @@ const
 						});
 					}
 				}),
-				playTrack = (connection, channel) => {
+				playTrack = (connection) => {
 					const vid = music.queue.shift(),
 						stream = ytdl("https://www.youtube.com/watch?v=" + (vid.id || vid.snippet.resourceId).videoId, { filter: "audioonly" });
 					music.nowPlaying = vid;
 					music.dispatcher = connection.playStream(stream).once("end", () => {
 						if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
 						music.nowPlaying = music.dispatcher = null;
-						if(music.queue.length)return playTrack(connection, channel);
+						if(music.queue.length)return playTrack(connection);
 						connection.channel.leave();
-						channel.send("End of queue.").then(msg => msg.delete(7500));
+						music.textChannel.send("End of queue.").then(msg => msg.delete(7500));
 					});
-					channel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`).then(msg => msg.delete(5000));
+					music.textChannel.send(`**Now playing: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`).then(msg => msg.delete(10000));
 				}
 				queueAdd = (vid, r, m, msg, mDelete, reply) => {
 					if(r){
@@ -68,8 +62,10 @@ const
 					if(!vid)return resolve({ content: "Music selection cancelled.", delete: 3000 });
 					let content = "";
 					if(vid !== "play"){
+						const len = music.queue.length;
+						music.queue.push({ ...vid, dj: message.member });
+						music.textChannel = message.channel;
 						content = `**Added to queue: \`${ vid.snippet.title }\` by** ${ vid.snippet.channelTitle }.`;
-						music.queue.push(vid);
 					}
 					if(!vc && !selfVc)return resolve({ content: content + "\n\nYou/I must be in a voice channel first!", delete: 15000 });
 					if(!vc.joinable)return resolve({ content: content + "\n\nNo permission to join your current voice channel.", delete: 15000 });
@@ -82,7 +78,7 @@ const
 					resolve({ content: `Added **${ videos.length } items** to queue from https://www.youtube.com/playlist?list=${ videos[0].snippet.playlistId }\n${ content }`});
 				},	
 				options = ["1⃣","2⃣","3⃣","4⃣","5⃣","❌"];
-			if(music.queue.length && !query)return queueAdd("play");
+			if(music.queue.length && !query && !music.nowPlaying)return queueAdd("play");
 			if(!query)return resolve("You must provide a link/title to play a video!");
 			youtubeSearch(query, 5).then(results => { // Add multiple pages
 				if(typeof results === "string")return resolve({ content: results, delete: 7500 });
@@ -161,7 +157,7 @@ const
 					.addField("Views", vid.views, true)
 					.addField("Genre", vid.genre, true)
 					.addField("Total Time", resolveTime({ s: vid.duration, format: { s:1, m:1, h:1, d:1 }}), true)
-					.addField("Current Time", resolveTime({ ms: music.dispatcher.time, format: { s:1, m: 1, h:1, d:1 }}), true);
+					.addField("Current Time", resolveTime({ ms: music.dispatcher.time, format: { s:1, m: 1, h:1, d:1 } }) || "0s", true);
 				msg.channel.send({ embed: embed });
 			});
 		},
@@ -186,18 +182,29 @@ const
 		get stop(){ return this.leave; },
 		get continue(){ return this.resume; }
 	};
-
+ 
 let servers;
 
 module.exports = class {
 	constructor({ client, guilds }) {
-		const ids = client.guilds.keys();
-		for(const id of ids)guilds[id] = { music: { queue: [] } };
 		servers = guilds;
+		const ids = client.guilds.keys();
+		if(!Object.keys(guilds).length)for(const id of ids)this.setup(id);
 		this.info = "Play music.";
 		this.requiresGuild = true;
 		this.selfPerms = ["MANAGE_MESSAGES", "ADD_REACTIONS"];
 		this.aliases = ["m"];
+	}
+
+	setup(id, del) {
+		if(del)delete servers[id];
+			else servers[id] = { music: { queue: [] } };
+	}
+
+	vcUpdate(mem) {
+		const music = servers[mem.guild.id].music;
+		if(!mem.voiceChannel || !music.queue.length || music.queue[0].dj !== mem)return;
+		musicCmds.play(music, { member: mem, guild: mem.guild }, "", [])
 	}
 
 	run(msg, params, flags) {

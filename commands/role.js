@@ -1,4 +1,4 @@
-const getMembers = require("../util/getMembers.js");
+const [ getMembers ] = require("../util/loadModules.js")("getMembers");
 
 module.exports = class {
 	constructor() {
@@ -6,6 +6,7 @@ module.exports = class {
 		this.info = "Add/Removes a role from a member.";
 		this.e = "edit role of";
 		this.requiresGuild = true;
+		this.mod = true;
 	}
 
 	run(msg, params, flags) {

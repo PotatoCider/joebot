@@ -1,6 +1,6 @@
 const fs = require("fs");
-
-module.exports = (err, msg, e) => {
+let errorHandler;
+module.exports = errorHandler = (err, msg, e) => {
 	if(!err ||
 		err.message === "Provided too few or too many messages to delete. Must provide at least 2 and at most 100 messages to delete." ||
 		err.message === "Cannot send an empty message" ||
