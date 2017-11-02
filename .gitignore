@@ -1,8 +1,9 @@
 # Backups
-bot_backup.js
+*_backup.js
 
 # Data + Info
-*.json
+config.json
+images.json
 
 # Run 
 start_bot.bat

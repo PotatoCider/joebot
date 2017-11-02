@@ -1,4 +1,4 @@
-const fs = require("fs");
+const fs = require("fs"), Discord = require("discord.js");
 
 let client, guilds, commands, cmdList;
 
@@ -19,8 +19,11 @@ module.exports = class {
 					if(err)throw err;
 					resolve("Error log cleared.");
 				});
+				let guild = guilds[msg.guild.id],
+					music = guild.music;
 				if(flags.includes("log"))return eval(`console.log(${ params });`);
 				if(flags.includes("send"))return resolve(eval(params));
+				if(flags.includes("restart"))return fs.writeFileSync("bot.js", fs.readFileSync("bot.js"));
 				eval(params);
 			}else resolve("You are not Joe >:(");
 		});

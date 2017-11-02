@@ -1,8 +1,7 @@
 const
-	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, Discord, { token } ]
-		= require("./util/loadModules.js")("fs", "error", "perms", "commandProcessing", "discord.js", "./config");
+	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, Discord, { token } ]
+		= require("./util/loadModules")("fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js", "./config");
 	client = new Discord.Client();
-let readyState = 0;
 /*
 	GitHub :D
 	TODO: Add more commands like mute, 8ball, rate, remindme, urban, music, currency, slots, lotto, vote, repeat cmd(only certain commands like nick, role)
@@ -21,64 +20,24 @@ let readyState = 0;
 	Add a permissions system where admin can restrict commands from certain roles/players
 	User created commands?
 	
-	Add comment explain what each block of code does
+	Add comments explaining what each block of code does
 */
-const guilds = {}, commands = {}, cmdList = { mod: [], reg: [] };
-
-const loadCommand = (target, module, reload) => new Promise(resolve => {
-	const cmd = module.slice(0, -3),
-		path = "./commands/" + module;
-	if(reload && target[cmd]){
-		delete require.cache[require.resolve(path)];
-		const cmdType = target[cmd].mod ? "mod" : "reg",
-			cmdIndex = cmdList[cmdType].indexOf(cmd);
-		if(cmdIndex !== -1)cmdList[cmdType].splice(cmdIndex, 1);
-	}
-	const command = target[cmd] = new (require(path))({ client, commands, guilds, cmdList });
-	if(command.mod)cmdList.mod.push(cmd);
-		else cmdList.reg.push(cmd);
-	const aliases = command.aliases || [];
-	for(const alias of aliases)if(!target[alias])Object.defineProperty(target, alias, {
-		get: function() { return this[cmd]; }
-	});
-	resolve();
-});
-
-const loadCommands = (target, reload) => {
-	const cmds = fs.readdirSync("./commands");
-	const loading = [];
-	for(let i = 0; i < cmds.length; i++)loading[i] = loadCommand(target, cmds[i], reload);
-	Promise.all(loading).then(() => {
-		console.log("Commands loaded.");
-		readyState++;
-		cmdList.mod.sort();
-		cmdList.reg.sort();
-	});
-	let fsTimeout = false;
-	if(!reload)fs.watch("./commands", "utf-8", (event, module) => {
-		if(event !== "change" || fsTimeout)return;
-		fsTimeout = setTimeout(() => fsTimeout = false, 1000); // Prevents multiple event calls within 1 second.
-		loadCommand(commands, module, true);
-		console.log(module + " reloaded.");
-	});
-}
-
-// Implement loadUtility
+const guilds = {}, commands = {};
 
 client.on("message", msg => { 
-	if(msg.author.bot)return;
+	if(msg.author.bot || !client.set)return;
 	const channel = msg.channel,
-		cmdName = getCommand(msg.content).toLowerCase(),
-		cmd = commands[cmdName];
+		name = getCommand(msg.content).toLowerCase(),
+		cmd = commands[name];
 	if(!cmd)return;
-	if(cmd.requiresGuild && !msg.guild)return msg.channel.send("This command can only be used in guilds!");
+	if(cmd.requiresGuild && !msg.guild)return channel.send("This command can only be used in guilds!");
 
-	const { content, flags } = processMsg(msg.content, cmdName);
+	const { content, flags } = processMsg(msg.content, name);
 	if(flags.includes("del"))msg.delete();
 	const missing = msg.guild ? missingPerms(channel, cmd.perms, msg.member) : [],
 		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [];
-	let run;
 
+	let run;
 	if(selfMissing.length)run = Promise.resolve(`I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`);
 		else if(missing.length)run = Promise.resolve("You don't have enough permissions >:(");
 		else run = cmd.run(msg, content, flags);
@@ -95,10 +54,15 @@ client.on("message", msg => {
 	.on("voiceStateUpdate", (oldMem, newMem) => commands.music.vcUpdate(newMem))
 
 	.login(token).then(() => {
-	readyState++;
-	loadCommands(commands);
-	console.log("The bot is online!");
+		console.log("Login successful!");
+		loadCommands(commands, "commands", { client, commands, guilds }).then(() => {
+			// Change this to another property
+			client.emit("set");
+			client.set = true;
+			console.log("The bot is online!"); 	
+		});
 	});
+
 
 
 process.on("unhandledRejection", errorHandler);

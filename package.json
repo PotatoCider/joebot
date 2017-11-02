@@ -1,0 +1,25 @@
+{
+  "name": "joebot",
+  "version": "2.5.0",
+  "description": "My bot :D",
+  "main": "bot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "node-gyp rebuild"
+  },
+  "author": "",
+  "license": "ISC",
+  "gypfile": true,
+  "dependencies": {
+    "discord.js": "^11.2.1",
+    "ffmpeg": "0.0.4",
+    "ffmpeg-binaries": "^3.2.2-3",
+    "get-youtube-id": "^1.0.0",
+    "is-builtin-module": "^1.0.0",
+    "opusscript": "0.0.3",
+    "request-promise": "^4.2.2",
+    "uws": "^8.14.1",
+    "youtube-info": "^1.1.1",
+    "ytdl-core": "^0.17.1"
+  }
+}
