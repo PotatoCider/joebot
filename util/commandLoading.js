@@ -28,8 +28,9 @@ const
 		let fsTimeout = false;
 		if(!reload)fs.watch(path, "utf-8", (event, module) => {
 			if(event !== "change" || fsTimeout)return;
+			const reload = !!target[module.slice(0, -3)];
+			loadCommand(target, `../${ path }/${ module }`, cmdParams, reload);
+			console.log(`${ module } ${ reload ? "re" : "" }loaded.`);
 			fsTimeout = setTimeout(() => fsTimeout = false, 1000); // Prevents multiple event calls within 1 second.
-			loadCommand(target, `../${ path }/${ module }`, cmdParams, true);
-			console.log(`${ module } reloaded.`);
 		});
 	});

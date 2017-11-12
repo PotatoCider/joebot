@@ -1,5 +1,5 @@
-const [ { RichEmbed }, fetchYoutubeInfo, randomColor, resolveTime, images ]
-	= require("../../util/loadModules.js")("discord.js", "youtube-info", "randomColor", "resolveTime", "./images.json");
+const [ { RichEmbed }, fetchYoutubeInfo, resolveTime, images ]
+	= require("../../util/loadModules.js")("discord.js", "youtube-info", "resolveTime", "./images.json");
 
 module.exports = class {
 	constructor() {
@@ -15,7 +15,7 @@ module.exports = class {
 			const embed = new RichEmbed()
 				.setAuthor("Youtube", images.yt)
 				.setThumbnail(vid.thumbnailUrl)
-				.setColor(randomColor())
+				.setColor("RANDOM")
 				.setFooter(`Requested by ${ msg.author.tag }`)
 				.addField("Video", `**[${vid.title}](${vid.url})**`)
 				.addField("Owner", vid.owner, true)

@@ -1,5 +1,4 @@
-const
-	[ { loadCommand, loadCommands } ] = require("../util/loadModules")("commandLoading");
+const { loadCommand, loadCommands } = require("../util/commandLoading.js");
 
 /* 
 	TODO: Implement vote system
@@ -28,22 +27,21 @@ module.exports = class {
 	}
 
 	setup(id, del) {
-		if(del)delete servers[id];
-			else servers[id] = { music: { queue: [], djs: [] } };
+		servers[id] = { music: { queue: [] } };
 	}
 
 	vcUpdate(mem) {
 		const music = servers[mem.guild.id].music;
-		if(mem.voiceChannel && mem.voiceChannel.joinable && music.queue.length && !music.nowPlaying && music.djs.includes(mem.id))
+		if(mem.voiceChannel && music.queue.length && !music.nowPlaying && mem.voiceChannel.joinable && music.queue.some(vid => vid.dj === mem.id))
 			commands.play.run(music, { member: mem, guild: mem.guild }, "", []);
 	}
 
 	run(msg, params, flags) {
 		return new Promise(resolve => {	
 			params = params.split(" ");
-			const cmd = commands[params.shift().toLowerCase()].run;
+			const cmd = commands[params.shift().toLowerCase()];
 			msg.delete();
-			resolve(cmd ? cmd(servers[msg.guild.id].music, msg, params.join(" "), flags) : "Invalid music commmand.");
+			resolve(cmd ? cmd.run(servers[msg.guild.id].music, msg, params.join(" "), flags) : "Invalid music commmand.");
 		});
 		
 	}

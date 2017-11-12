@@ -3,13 +3,13 @@ module.exports = class {
 		this.aliases = ["s"];
 	}
 
-	run(music, msg, i, flags) {
-		if(i && i-- !== 0){
-			if(isNaN(i) || i < 1 || i > music.queue.length)return "Please choose a valid index.";
+	run(music, msg, i, flags) { // TODO: Add vote system
+		if(i && i-- !== 0){ // Note that i is now 0-indexed.
+			if(isNaN(i) || i < 0 || i >= music.queue.length)return "Please choose a valid index.";
 			if(msg.member.id !== music.queue[i].dj)return "You are not a DJ of that song in queue!";
-			music.djs.splice(i, 1);
+			const title = music.queue[i].snippet.title;
 			music.queue.splice(i, 1);
-			return `Removed **\`${ music.queue[i - 1].snippet.title }\`** from queue.`;
+			return `Removed **\`${ title }\`** from queue.`;
 		}
 		if(!music.nowPlaying)return "No songs currently playing";
 		const content = `Skipped **\`${ music.nowPlaying.snippet.title }\`**.`;

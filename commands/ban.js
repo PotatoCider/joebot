@@ -12,10 +12,13 @@ module.exports = class {
 	run(msg, params, flags) {
 		return new Promise(resolve => {
 			params = params.split(" ");
-			const member = getMembers(params.shift(), msg.guild),
+			const mention = params.shift(),
 				reason = params.join(" ");
-			if(!member)return resolve("I cannot ban a nobody.");
-			resolve(member.ban(reason).then(() => "Successfully banned " + member + (reason ? " due to `" + reason + "`" : " with no reason") + "."));
+				
+			getMembers(mention, msg.guild).then(member => {
+				if(!member)return resolve("I cannot ban a nobody.");
+				resolve(member.ban(reason).then(() => "Successfully banned " + member + (reason ? " due to `" + reason + "`" : " with no reason") + "."));
+			});
 		});
 	}
 }

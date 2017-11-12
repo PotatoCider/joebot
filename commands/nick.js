@@ -12,10 +12,13 @@ module.exports = class {
 	run(msg, params, flags) {
 		return new Promise(resolve => {
 			params = params.split(" ");
-			const member = getMembers(params.shift(), msg.guild),
+			const mention = params.shift(),
 				nick = params.join(" ");
-			if(!member)return resolve("Changed nobody's nick.");
-			resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem.user.tag }'s nickname${ nick ? " to " + nick : "" }.`));
+				
+			getMembers(mention, msg.guild).then(member => {
+				if(!member)return resolve("Changed nobody's nick.");
+				resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem }'s nickname${ nick ? ` from ${ mem.displayName } to ${ nick }.` + nick : "" }.`));
+			});
 		});
 	}
 }

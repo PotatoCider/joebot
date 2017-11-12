@@ -1,41 +1,17 @@
 const
 	isBuiltin = require("is-builtin-module"),
-	fs = require("fs"),
-	getFile = require("./getFile.js"),
-	{ dev } = require("../config.json"),
 	{ dependencies } = require("../package.json"),
-	coreModules = Object.keys(dependencies),
-
-	isCoreModule = module => isBuiltin(module) || coreModules.includes(module),
-
-	loadModule = (fetched, path) => {
+	coreModules = Object.keys(dependencies);
+	
+module.exports = (reload, ...mods) => {
+	const fetched = [];
+	if(typeof reload !== "boolean")mods.unshift(reload);
+	for(const mod of mods){
 		const 
-			file = getFile(path),
-			isCore = isCoreModule(path),
-			mod = isCore ? path : (path.startsWith("./") ? `.${ path }` : `./${ path }`),
-			module = require(mod);
-		fetched.push(module);
-		return file;
-	};
-
-module.exports = (...mods) => {
-	const fetched = [],
-		filename = module.parent.filename;
-	delete require.cache[__filename];
-	for(const mod of mods)loadModule(fetched, mod);
-	mods = mods.filter(mod => !isCoreModule(mod));
-	let fsTimeout = false;
-	// TODO: Delete multiple watchers when module is called multiple times due to change in code
-	if(mods.length && dev)fs.watch("./", { recursive: true }, (event, path) => {
-		const file = getFile(path);
-		if(event === "change" && mods.includes(file) && !fsTimeout){
-			delete require.cache[require.resolve("../" + path)];
-			const mod = loadModule(fetched, `./${ path }`),
-				parent = getFile(filename);
-			console.log(`module ${ mod }.js reloaded in parent ${ parent }.js`);
-			
-			fsTimeout = setTimeout(() => fsTimeout = false, 1000);
-		}
-	});
+			isCore = isBuiltin(mod) || coreModules.includes(mod),
+			name = isCore ? mod : require.resolve(mod.startsWith("./") ? `.${ mod }` : `./${ mod }`);
+		if(reload && require.cache[name])delete require.cache[name];
+		fetched.push(require(name));
+	}
 	return fetched;
 };

@@ -8,7 +8,7 @@ module.exports = class {
 	
 	run(music) {
 		const queue = music.queue,
-			np = commands.nowplaying(music);
+			np = commands.nowplaying.run(music);
 		let message = (music.nowPlaying ? np : "") + (music.queue.length ? "" : "Queue is empty.");
 		for(let i = 0; i < queue.length; i++){
 			const vid = queue[i].snippet;

@@ -1,7 +1,7 @@
 const
-	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, Discord, { token } ]
-		= require("./util/loadModules")("fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js", "./config");
-	client = new Discord.Client();
+	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client }, { token } ]
+		= require("./util/loadModules")("fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js", "./config"),
+	client = new Client(),
 /*
 	GitHub :D
 	TODO: Add more commands like mute, 8ball, rate, remindme, urban, music, currency, slots, lotto, vote, repeat cmd(only certain commands like nick, role)
@@ -21,28 +21,39 @@ const
 	User created commands?
 	
 	Add comments explaining what each block of code does
+	Add client.bot for communicating between command modules?
+	Add restarting modules
 */
-const guilds = {}, commands = {};
+	guilds = {}, commands = {};
 
 client.on("message", msg => { 
 	if(msg.author.bot || !client.set)return;
 	const channel = msg.channel,
 		name = getCommand(msg.content).toLowerCase(),
-		cmd = commands[name];
+		cmd = commands[name]
 	if(!cmd)return;
 	if(cmd.requiresGuild && !msg.guild)return channel.send("This command can only be used in guilds!");
 
-	const { content, flags } = processMsg(msg.content, name);
-	if(flags.includes("del"))msg.delete();
+	const { content, flags } = processMsg(msg.content, name),
+		index = flags.indexOf("del");
+	if(index !== -1){
+		msg.delete();
+		flags.splice(index, 1);
+	}
 	const missing = msg.guild ? missingPerms(channel, cmd.perms, msg.member) : [],
-		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [];
+		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [],
+		processOutput = output => {
+			if(output)channel.send(output.content || output, output.options).then(m => {
+				if(output.delete)m.delete(output.delete);
+			});
+		};
 
 	let run;
-	if(selfMissing.length)run = Promise.resolve(`I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`);
-		else if(missing.length)run = Promise.resolve("You don't have enough permissions >:(");
+	if(selfMissing.length)run = `I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`;
+		else if(missing.length)run = "You don't have enough permissions >:(";
 		else run = cmd.run(msg, content, flags);
-
-	run.then(output => output ? channel.send(output.content || output, output.options).then(m => output.delete ? m.delete(output.delete) : null) : null).catch(err => errorHandler(err, msg, cmd.e));
+		if(run && run.then)run.then(processOutput).catch(err => errorHandler(err, msg, cmd.e));
+			else processOutput(run);
 	})
 
 	.on("guildCreate", guild => commands.music.setup(guild.id))
@@ -59,7 +70,7 @@ client.on("message", msg => {
 			// Change this to another property
 			client.emit("set");
 			client.set = true;
-			console.log("The bot is online!"); 	
+			console.log("The bot is online!");
 		});
 	});
 

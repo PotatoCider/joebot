@@ -12,10 +12,13 @@ module.exports = class {
 	run(msg, params, flags) {
 		return new Promise(resolve => {
 			params = params.split(" ");
-			const member = getMembers(params.shift(), msg.guild),
+			const mention = params.shift(),
 				reason = params.join(" ");
-			if(!member)return resolve("I kicked air.");
-			resolve(member.kick(reason).then(() =>"Successfully kicked " + member + (reason ? " due to `" + reason + "`" : " with no reason") + "."));
+				
+			getMembers(mention, msg.guild).then(member => {
+				if(!member)return resolve("I kicked air.");
+				resolve(member.kick(reason).then(() =>"Successfully kicked " + member + (reason ? " due to `" + reason + "`" : " with no reason") + "."));
+			});
 		});
 	}
 }
