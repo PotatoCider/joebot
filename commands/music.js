@@ -1,4 +1,4 @@
-const { loadCommand, loadCommands } = require("../util/commandLoading.js");
+const { loadCommand, loadCommands } = require("../util/commandLoading.js"),
 
 /* 
 	TODO: Implement vote system
