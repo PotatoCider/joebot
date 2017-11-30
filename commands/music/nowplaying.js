@@ -1,5 +1,5 @@
-const [ { RichEmbed }, fetchYoutubeInfo, resolveTime, images ]
-	= require("../../util/loadModules.js")("discord.js", "youtube-info", "resolveTime", "./images.json");
+const [ Embed, { resolveDuration, resolveDate }, images, ytTopics ]
+	= require("../../util/loadModules.js")("Embed", "time", "./images.json", "./ytTopics.json");
 
 module.exports = class {
 	constructor() {
@@ -9,21 +9,20 @@ module.exports = class {
 	run(music, msg) {
 		const np = music.nowPlaying;
 		if(!np)return "There is nothing playing now.";
-		const snippet = np.snippet;
-		if(!msg)return `**Now playing**: **\`${ snippet.title }\` by** ${ snippet.channelTitle }\n\n`;
-		fetchYoutubeInfo((np.id || snippet.resourceId).videoId).then(vid => {
-			const embed = new RichEmbed()
-				.setAuthor("Youtube", images.yt)
-				.setThumbnail(vid.thumbnailUrl)
-				.setColor("RANDOM")
-				.setFooter(`Requested by ${ msg.author.tag }`)
-				.addField("Video", `**[${vid.title}](${vid.url})**`)
-				.addField("Owner", vid.owner, true)
-				.addField("Views", vid.views, true)
-				.addField("Genre", vid.genre, true)
-				.addField("Total Time", resolveTime({ s: vid.duration, format: { s:1, m:1, h:1, d:1 }}), true)
-				.addField("Current Time", resolveTime({ ms: music.dispatcher.time, format: { s:1, m: 1, h:1, d:1 } }) || "0s", true);
-			msg.channel.send({ embed });
-		});
+		if(!msg)return `**Now playing**: **\`${ np.title }\` by** ${ np.channelTitle }\n\n`;
+		const embed = new Embed(msg.author)
+			.setAuthor("Youtube")
+			.setImage(np.thumbnail)
+			.addField("Video ", `**[${ np.title }](https://www.youtube.com/watch?v=${ np.id })**`)
+			.addField("Channel", `[${ np.channelTitle }](https://www.youtube.com/channel/${ np.channelId })`, true)
+			.addField("Views", (+np.viewCount).toLocaleString(), true)
+			.addField("Comments", (+np.commentCount).toLocaleString(), true)
+			.addField("Current Time", resolveDuration({ ms: music.dispatcher.time, format: { s:1, m: 1, h:1, d:1 } }) || "0s", true)
+			.addField("Total Time", resolveDuration({ iso: np.duration, format: { s:1, m:1, h:1, d:1 }}) || "0s", true)
+			.addField("Date Published", resolveDate(np.publishedAt), true)
+			.addField("Category", ytTopics[np.categoryId], true)
+			.addField("Likes", (+np.likeCount).toLocaleString(), true)
+			.addField("Dislikes", (+np.dislikeCount).toLocaleString(), true);
+		msg.channel.send(embed);
 	}
 }

@@ -11,16 +11,21 @@
   "license": "ISC",
   "gypfile": true,
   "dependencies": {
+    "bufferutil": "^3.0.3",
     "discord.js": "^11.2.1",
-    "ffmpeg": "0.0.4",
+    "erlpack": "github:hammerandchisel/erlpack",
     "ffmpeg-binaries": "^3.2.2-3",
-    "get-youtube-id": "^1.0.0",
     "is-builtin-module": "^1.0.0",
-    "opusscript": "0.0.3",
+    "node-opus": "^0.2.7",
+    "request": "^2.83.0",
     "request-promise": "^4.2.2",
+    "sodium": "^2.0.1",
     "urban-dictionary-es6": "^1.0.1",
-    "uws": "^8.14.1",
-    "youtube-info": "^1.1.1",
+    "uws": "^0.14.5",
     "ytdl-core": "^0.17.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/gohjoseph/JoeBot"
   }
 }

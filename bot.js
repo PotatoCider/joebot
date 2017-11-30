@@ -30,7 +30,7 @@ client.on("message", msg => {
 	if(msg.author.bot || !client.set)return;
 	const channel = msg.channel,
 		name = getCommand(msg.content).toLowerCase(),
-		cmd = commands[name]
+		cmd = commands[name];
 	if(!cmd)return;
 	if(cmd.requiresGuild && !msg.guild)return channel.send("This command can only be used in guilds!");
 
@@ -56,13 +56,13 @@ client.on("message", msg => {
 			else processOutput(run);
 	})
 
-	.on("guildCreate", guild => commands.music.setup(guild.id))
+	.on("guildCreate", guild => client.set && commands.music.setup(guild.id))
 
-	.on("guildDelete", guild => delete guilds[guild.id])
+	.on("guildDelete", guild => client.set && delete guilds[guild.id])
 
 	.on("error", errorHandler)
 
-	.on("voiceStateUpdate", (oldMem, newMem) => commands.music.vcUpdate(newMem))
+	.on("voiceStateUpdate", (oldMem, newMem) => client.set && commands.music.vcUpdate(newMem))
 
 	.login(token).then(() => {
 		console.log("Login successful!");

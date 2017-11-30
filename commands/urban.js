@@ -8,8 +8,8 @@ const [ Embed, Pages, ud, images ] = require("../util/loadModules.js")("Embed", 
 			.addField("Definition", `**${ info.definition }**`)
 			.addField("Examples", `*${ info.example }*`)
 			.addField("Author", info.author)
-			.addField("Thumbs Up", info.thumbs_up, true)
-			.addField("Thumbs Down", info.thumbs_down, true);
+			.addField("Thumbs Up", info.thumbs_up + " :thumbsup:", true)
+			.addField("Thumbs Down", info.thumbs_down +  " :thumbsdown:", true);
 	},
 	urban = term => new Promise(resolve => {
 		ud[term ? "term" : "random"](term)
@@ -28,10 +28,9 @@ module.exports = class {
 	run(message, params, flags) {
 		Promise.all([
 			message.channel.send(contentLoading),
-			urban(params) // Add support for random
+			urban(params)
 		]).then(([msg, res]) => {
 				if(params){	
-					let i = 0; // For initialising 
 					const { entries, tags, sounds } = res;
 					if(!entries)return msg.edit("No results found.");
 					const pages = new Pages(message, {

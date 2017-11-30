@@ -11,7 +11,7 @@ module.exports = class {
 			np = commands.nowplaying.run(music);
 		let message = (music.nowPlaying ? np : "") + (music.queue.length ? "" : "Queue is empty.");
 		for(let i = 0; i < queue.length; i++){
-			const vid = queue[i].snippet;
+			const vid = queue[i];
 			message += `**${ i+1 }**: **\`${ vid.title }\` by** ${ vid.channelTitle }\n`;
 		}
 		return message;
