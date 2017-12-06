@@ -3,7 +3,6 @@
 
 # Data + Info
 config.json
-images.json
 
 # Run 
 start_bot.bat
