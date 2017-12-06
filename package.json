@@ -5,7 +5,8 @@
   "main": "bot.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "node-gyp rebuild"
+    "install": "node-gyp rebuild",
+    "start": "node bot.js"
   },
   "author": "",
   "license": "ISC",
@@ -16,13 +17,16 @@
     "erlpack": "github:hammerandchisel/erlpack",
     "ffmpeg-binaries": "^3.2.2-3",
     "is-builtin-module": "^1.0.0",
+    "libsodium-wrappers": "^0.5.4",
     "node-opus": "^0.2.7",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
-    "sodium": "^2.0.1",
     "urban-dictionary-es6": "^1.0.1",
     "uws": "^0.14.5",
     "ytdl-core": "^0.17.1"
+  },
+  "engines": {
+  	"node": "8.x"
   },
   "repository": {
     "type": "git",

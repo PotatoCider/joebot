@@ -74,9 +74,8 @@ client.on("message", msg => {
 		});
 	});
 
-
-
-process.on("unhandledRejection", errorHandler);
+process.on("unhandledRejection", errorHandler)
+	.on("uncaughtException", errorHandler);
 /*
 	Permissions:
 	ADMINISTRATOR (implicitly has all permissions, and bypasses all channel overwrites)

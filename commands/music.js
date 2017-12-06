@@ -3,9 +3,7 @@ const { loadCommand, loadCommands } = require("../util/commandLoading.js"),
 /* 
 	TODO: Implement vote system
 	TODO: Add Permissions
-	TODO: Add Multiple Page Support for Search query
 	TODO: Rich Embed queue command
-	TODO: utilise commandLoading.js
 */
 
 	commands = {};

@@ -40,6 +40,6 @@ exports.resolveDate = iso => {
 	if(iso.length > 10)iso = iso.slice(0, 10);
 	iso = iso.split("-").reverse();
 	iso[0] = ~~iso[0];
-	iso[1] = months[~~iso[1]];
+	iso[1] = months[~~iso[1] - 1];
 	return iso.join(" ");
 }

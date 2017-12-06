@@ -47,19 +47,19 @@ exports.fetchPlaylist = (id, pageToken) =>
 		return items;
 	});
 
-exports.fetchVideoInfo = (ids, pageToken) =>
+exports.fetchVideoInfo = (ids, { pageToken, maxResults = 50 } = {}) =>
 	youtubeRequest({
 		url: "videos",
 		qs: {
 			part: "snippet,contentDetails,statistics",
 			id: ids.toString(), // Takes care of both Array and Strings.
-			maxResults: 50,
+			maxResults,
 			pageToken,
 			fields: "items(contentDetails/duration,snippet(categoryId,channelId,channelTitle,publishedAt,tags,thumbnails/maxres/height,title),statistics(commentCount,dislikeCount,likeCount,viewCount)),nextPageToken"
 		}
 	}).then(({ items, nextPageToken }) => new Promise(resolve => {
 		if(nextPageToken){
-			exports.fetchVideoInfo(ids, nextPageToken)
+			exports.fetchVideoInfo(ids, { pageToken: nextPageToken })
 				.then(fetched => resolve(items.push(...fetched)));
 		}else resolve(items);
 	})).then(items => {

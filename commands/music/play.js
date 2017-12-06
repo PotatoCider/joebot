@@ -29,7 +29,7 @@ const
 				if(!vid)return resolve({ content: "Music selection cancelled.", delete: 3000 });
 				let content = "";
 				if(vid !== "play"){
-					const queuePush = vid => music.queue.push({ ...vid, dj: message.member.id, channel: message.channel });
+					const queuePush = vid => music.queue.push(Object.assign(vid, { dj: message.member.id, channel: message.channel }));
 					if(vid instanceof Array){
 						for(const v of vid)queuePush(v);
 						content = `Added **${ vid.length } items** to queue from https://www.youtube.com/playlist?list=${ vid[0].playlistId }`;
@@ -48,16 +48,28 @@ const
 
 	initSelection = (embed, vids) => {
 		const createSelection = page => {
-			embed.setAuthor("Youtube") 
-			.setThumbnail(images.music)
-			.setFooter(`Reply a number to choose or "cancel" to cancel`);
-			for(let i = page*5, c = 1; c <= 5; i++, c++){
-				const vid = vids[i];
-				embed.addField(`**Option ${ c }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vids[i].id }) (${ resolveDuration({ iso: vid.duration, yt: true }) }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
-			}
+			const i = page * 5;
+			const start = Date.now();
+			console.log(`Getting Info(Page ${ i+1 })...`);
+			return (() => {
+				const sliced = vids.slice(i, i + 5);
+				if(typeof vids[i] !== "string")return Promise.resolve(sliced);
+				return youtube.fetchVideoInfo(sliced, { maxResults: 5 });
+			})().then(info => {
+				console.log(`Info retrieved. Time taken: ${ Date.now() - start }ms`);
+
+				vids.splice(i, i + 5, ...info);
+				embed.setAuthor("Youtube") 
+				.setThumbnail(images.music)
+				.setFooter(`Reply a number to choose or "cancel" to cancel`);
+				for(let i = 0; i < 5; i++){
+					const vid = info[i];
+					embed.addField(`**Option ${ i+1 }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vid.id }) (${ resolveDuration({ iso: vid.duration, yt: true }) }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
+				}
+
+			});
 		};
-		createSelection(0);
-		return createSelection;
+		return createSelection(0).then(() => createSelection);
 	},
 
 	initCollector = (queueAdd, authorMsg, sent, results) => page => {
@@ -83,27 +95,33 @@ module.exports = class {
 			if(music.dispatcher && music.dispatcher.paused)return resolve(commands.resume.run(music));
 			if(!query)return resolve("You must provide a title/link to play a video!");
 			const selection = ~~flags.find(n => n >= 1 && n <= 50);
+			const time = { start: Date.now() };
+			console.log("Searching...");
 			youtube.search(
 				query, 
 				selection ? { maxResults: selection } : undefined
 			).then(videoIds => {
-				if(!selection)return youtube.fetchVideoInfo(videoIds);
+				time.mid = Date.now();
+				console.log(`Search done! Time taken: ${ time.mid - time.start }ms`);
+
+				if(!selection)return videoIds;
+
 				if(videoIds.length !== selection){ // results.length should be equal to selection.
 					resolve("Selection out of range."); 
 					return []; // Following .then will return immediately due to empty array. Note: Promises only resolve once.
 				}
-				return youtube.fetchVideoInfo(videoIds.pop());
+				return [videoIds.pop()];
 			}).then(results => {
 				if(!results.length)return resolve("Sorry, no results found."); 
-				if(results.length === 1)return queueAdd(results[0]);
+				if(results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(info[0]));
 
 				let collector, awaitSelection, createSelection;
 
 				const pages = new Pages(message, {
 						change: (page, msg) => {
-							createSelection(page);
 							collector.stop();
 							collector = awaitSelection(page);
+							return createSelection(page);
 						},
 						onceTimeout: msg => {
 							msg.edit("Music selection timed out.", { embed: {} })
@@ -119,9 +137,11 @@ module.exports = class {
 						options: [...Pages.options.slice(0, -1), "❌"],
 						limit: 10
 					});
-				createSelection = initSelection(pages, results);
 
-				pages.send(`This selection will timeout in 20 seconds.`).then(msg => {
+				initSelection(pages, results).then(fn => {
+					createSelection = fn;
+					return pages.send(`This selection will timeout in 20 seconds.`);
+				}).then(msg => {
 					awaitSelection = initCollector(queueAdd, message, msg, results);
 					collector = awaitSelection(0);
 				});
