@@ -1,0 +1,5 @@
+{
+	"prefix": "insert prefix here or set process.env.PREFIX",
+	"token": "insert token here or set process.env.TOKEN",
+	"yt_api_key": "insert Youtube API v3 key here or set process.env.YT_API_KEY"
+}

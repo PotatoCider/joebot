@@ -1,4 +1,6 @@
-const [ request, { yt_api_key } ] = require("./loadModules.js")("request-promise", "./config"),
+const request = require("request-promise"),
+	
+	yt_api_key = process.env.YT_API_KEY || require("../config.json").yt_api_key,
 	
 	youtubeRequest = request.defaults({
 		method: "GET",

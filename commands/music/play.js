@@ -1,6 +1,6 @@
 const
-	[ Pages, ytdl, youtube, { resolveDuration }, { yt_api_key }, images ] = require("../../util/loadModules.js")
-	("Pages", "ytdl-core", "youtube", "time", "./config", "./images"),
+	[ Pages, ytdl, youtube, { resolveDuration }, images ] = require("../../util/loadModules.js")
+	("Pages", "ytdl-core", "youtube", "time", "./images"),
 
 	playTrack = (music, connection) => {
 		const vid = music.queue.shift(),
