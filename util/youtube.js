@@ -1,6 +1,6 @@
 const request = require("request-promise"),
 	
-	yt_api_key = process.env.YT_API_KEY || require("../config.json").yt_api_key,
+	yt_api_key = process.env.YT_API_KEY,
 	
 	youtubeRequest = request.defaults({
 		method: "GET",

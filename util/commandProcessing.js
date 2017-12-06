@@ -1,5 +1,4 @@
-const prefix = process.env.TOKEN || require("../config.json").prefix;
-
+const prefix = process.env.PREFIX;
 exports.getCommand = content => content.startsWith(prefix) ? content.slice(prefix.length, (content.indexOf(" ", prefix.length)+1 || content.length+1)-1) : "";
 
 exports.processMsg = (content, cmd) => {

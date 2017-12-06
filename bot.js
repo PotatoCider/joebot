@@ -1,8 +1,8 @@
+require("./setup.js"); // setup env variables
 const
 	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client } ]
 		= require("./util/loadModules")("fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js"),
 	client = new Client(),
-	token = process.env.TOKEN || require("./config.json").token;
 /*
 	GitHub :D
 	TODO: Add more commands like mute, 8ball, rate, remindme, urban, music, currency, slots, lotto, vote, repeat cmd(only certain commands like nick, role)
@@ -65,13 +65,13 @@ client.on("message", msg => {
 
 	.on("voiceStateUpdate", (oldMem, newMem) => client.set && commands.music.vcUpdate(newMem))
 
-	.login(token).then(() => {
+	.login(process.env.TOKEN).then(() => {
 		console.log("Login successful!");
 		loadCommands(commands, "commands", { client, commands, guilds }).then(() => {
 			// Change this to another property
 			client.emit("set");
 			client.set = true;
-			console.log("The bot is online!");
+			console.log(`The bot is online!`);
 		});
 	});
 
