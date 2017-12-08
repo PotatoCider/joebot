@@ -10,7 +10,7 @@ const
 		music.dispatcher = connection.playStream(stream).once("end", () => {
 			if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
 			music.nowPlaying = music.dispatcher = null;
-
+			console.log(`Length now is ${ music.queue.length }.`);
 			if(music.queue.length)return playTrack(music, connection);
 			connection.channel.leave();
 			
