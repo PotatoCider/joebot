@@ -49,14 +49,11 @@ const
 	initSelection = (embed, vids) => {
 		const createSelection = page => {
 			const i = page * 5;
-			const start = Date.now();
-			console.log(`Getting Info(Page ${ i+1 })...`);
 			return (() => {
 				const sliced = vids.slice(i, i + 5);
 				if(typeof vids[i] !== "string")return Promise.resolve(sliced);
 				return youtube.fetchVideoInfo(sliced, { maxResults: 5 });
 			})().then(info => {
-				console.log(`Info retrieved. Time taken: ${ Date.now() - start }ms`);
 
 				vids.splice(i, i + 5, ...info);
 				embed.setAuthor("Youtube") 
@@ -95,14 +92,10 @@ module.exports = class {
 			if(music.dispatcher && music.dispatcher.paused)return resolve(commands.resume.run(music));
 			if(!query)return resolve("You must provide a title/link to play a video!");
 			const selection = ~~flags.find(n => n >= 1 && n <= 50);
-			const time = { start: Date.now() };
-			console.log("Searching...");
 			youtube.search(
 				query, 
 				selection ? { maxResults: selection } : undefined
 			).then(videoIds => {
-				time.mid = Date.now();
-				console.log(`Search done! Time taken: ${ time.mid - time.start }ms`);
 
 				if(!selection)return videoIds;
 

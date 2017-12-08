@@ -17,7 +17,7 @@ module.exports = class Pages extends Embed {
 		this[s_setIndex]();
 		// this.next = next;
 		// this.prev = prev;
-		this.change = change
+		this.change = change;
 		this.onceTimeout = onceTimeout;
 		this.options = options || Pages.options;
 		this.timeout = timeout || 30000;
@@ -94,23 +94,20 @@ module.exports = class Pages extends Embed {
 				if(chosen === "▶")content = this.change(i < limit ? this[s_setIndex](1) : limit, msg);
 					else content = this.change(i ? this[s_setIndex](-1) : 0, msg);
 
-				const onceUpdated = (content = msg.content) => msg.edit(content, { embed: this })
+				Promise.resolve(content)
+					.then(content => msg.edit(content || msg.content, { embed: this }))
 					.then(() => this[s_pending] = false);
-
-				if(content && content.then)content.then(onceUpdated)
-					else onceUpdated(content);
 			}else this.onSelect(reaction);
 
 			this[s_watch](contentLoading);
 		});
 
 		setImmediate(() => {
-			onceReact.collector.once("end", () => {
+			this[s_collector] = onceReact.collector.once("end", () => {
 				if(onceReact.resolved)return;
 				msg.clearReactions();
 				if(this.onceTimeout)this.onceTimeout(msg);
-			});
-			this[s_collector] = onceReact.collector;
+			})
 		});
 	}
 };

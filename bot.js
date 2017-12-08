@@ -24,6 +24,8 @@ const
 	Add comments explaining what each block of code does
 	Add client.bot for communicating between command modules?
 	Add restarting modules
+
+	Add deleteall command which basically removes and adds the same channel with the same perms
 */
 	guilds = {}, commands = {};
 
@@ -42,28 +44,28 @@ client.on("message", msg => {
 		flags.splice(index, 1);
 	}
 	const missing = msg.guild ? missingPerms(channel, cmd.perms, msg.member) : [],
-		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [],
-		processOutput = output => {
-			if(output)channel.send(output.content || output, output.options).then(m => {
-				if(output.delete)m.delete(output.delete);
-			});
-		};
+		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [];
 
 	let run;
 	if(selfMissing.length)run = `I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`;
 		else if(missing.length)run = "You don't have enough permissions >:(";
 		else run = cmd.run(msg, content, flags);
-		if(run && run.then)run.then(processOutput).catch(err => errorHandler(err, msg, cmd.e));
-			else processOutput(run);
-	})
+	
+	Promise.resolve(run).then(output => {
+		if(output)channel.send(output.content || output, output.options).then(m => {
+			if(output.delete)m.delete(output.delete);
+		});
+	});
+
+})
 
 	.on("guildCreate", guild => client.set && commands.music.setup(guild.id))
 
 	.on("guildDelete", guild => client.set && delete guilds[guild.id])
 
-	.on("error", errorHandler)
-
 	.on("voiceStateUpdate", (oldMem, newMem) => client.set && commands.music.vcUpdate(newMem))
+
+	.on("error", errorHandler)
 
 	.login(process.env.TOKEN).then(() => {
 		console.log("Login successful!");

@@ -13,6 +13,7 @@ module.exports = (err, msg, e) => {
 		msg.channel.send("Too long nickname.")
 		return true;
 	}
+	if(process.env.PRODUCTION === "TRUE")return console.log(err);
 	fs.appendFile("log.txt", `${ err.stack || err }\nMessage: ${ err.message }\nCode: ${ err.code }\nDate: ${ Date() }\n\n`, error => {
 		if(error)throw error; 
 		console.log("log updated"); 
