@@ -14,6 +14,7 @@ module.exports = class {
 		if(!music.nowPlaying)return "No songs currently playing";
 		const content = `Skipped **\`${ music.nowPlaying.title }\`**.`;
 		music.nowPlaying = false;
+		console.log("Ending dispatcher.\n music.repeat = " + music.repeat);
 		music.dispatcher.end();
 		if(music.repeat)music.queue.pop();
 		return { content, delete: 5000 };

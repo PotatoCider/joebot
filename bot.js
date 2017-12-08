@@ -67,6 +67,8 @@ client.on("message", msg => {
 
 	.on("error", errorHandler)
 
+	.on("warn", console.log)
+
 	.login(process.env.TOKEN).then(() => {
 		console.log("Login successful!");
 		loadCommands(commands, "commands", { client, commands, guilds }).then(() => {

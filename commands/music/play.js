@@ -5,17 +5,22 @@ const
 	playTrack = (music, connection) => {
 		const vid = music.queue.shift(),
 			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id, { filter: "audioonly" });
+		console.log("Youtube stream started: " + vid.title);
 		music.nowPlaying = vid;
 
 		music.dispatcher = connection.playStream(stream).once("end", () => {
-			if(music.repeat && music.nowPlaying)music.queue.push(music.nowPlaying);
+			console.log("Stream ended: " + vid.title);
+			if(music.repeat)music.queue.push(vid);
 			music.nowPlaying = music.dispatcher = null;
-			console.log(`Length now is ${ music.queue.length }.`);
 			if(music.queue.length)return playTrack(music, connection);
 			connection.channel.leave();
 			
 			vid.channel.send("End of queue.").then(msg => msg.delete(10000));
-		});
+		}).on("debug", info => console.log("Dispatcher DEBUG: " + info)).on("error", err => console.log("Dispatcher ERROR: " + err));
+		connection.on("debug", info => console.log("Connection DEBUG: " + info))
+		.on("warn", info => console.log("Connection WARN: " + info))
+		.on("error", err => console.log("Connection ERROR: " + err));
+
 		vid.channel.send(`**Now playing: \`${ vid.title }\` by** ${ vid.channelTitle }.`).then(msg => msg.delete(10000));
 	},
 
