@@ -1,6 +1,6 @@
 const
-	[ Pages, ytdl, youtube, { resolveDuration }, images ] = require("../../util/loadModules.js")
-	("Pages", "ytdl-core", "youtube", "time", "./images"),
+	[ Pages, ytdl, youtube, { resolveDuration }, images, errorHandler ] = require("../../util/loadModules.js")
+	("Pages", "ytdl-core", "youtube", "time", "./images", "error"),
 
 	playTrack = (music, connection) => {
 		const vid = music.queue.shift(),
@@ -18,7 +18,7 @@ const
 			vid.channel.send("End of queue.").then(msg => msg.delete(10000));
 		}).on("debug", info => console.log("Dispatcher DEBUG: " + info)).on("error", err => console.log("Dispatcher ERROR: " + err));
 		connection.on("debug", info => console.log("Connection DEBUG: " + info))
-		.on("warn", info => console.log("Connection WARN: " + info))
+		.on("warn", info => info.stack instanceof Error ? errorHandler(info) : console.log("Connection WARN: " + info))
 		.on("error", err => console.log("Connection ERROR: " + err));
 
 		vid.channel.send(`**Now playing: \`${ vid.title }\` by** ${ vid.channelTitle }.`).then(msg => msg.delete(10000));
