@@ -10,7 +10,14 @@ const
 		music.dispatcher = connection.playStream(stream).once("end", () => {
 			if(music.repeat)music.queue.push(vid);
 			music.nowPlaying = music.dispatcher = null;
-			if(music.queue.length)return playTrack(music, connection);
+			if(music.queue.length){
+				if(music.settings === 1)return playTrack(music, connection);
+				if(music.settings === 2)return setImmediate(() => playTrack(music, connection));
+				if(music.settings === 3)return process.nextTick(() => playTrack(music, connection));
+				if(music.settings === 4)return setTimeout(() => playTrack(music, connection), 1);
+				if(music.settings === 5)return setTimeout(() => playTrack(music, connection), 1000);
+				if(music.settings === 6)return setTimeout(() => playTrack(music, connection), 5000);
+			}
 			connection.channel.leave();
 			
 			vid.channel.send("End of queue.").then(msg => msg.delete(10000));
