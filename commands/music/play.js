@@ -11,12 +11,17 @@ const
 			if(music.repeat)music.queue.push(vid);
 			music.nowPlaying = music.dispatcher = null;
 			if(music.queue.length){
-				if(music.settings === 1)return playTrack(music, connection);
-				if(music.settings === 2)return setImmediate(() => playTrack(music, connection));
-				if(music.settings === 3)return process.nextTick(() => playTrack(music, connection));
-				if(music.settings === 4)return setTimeout(() => playTrack(music, connection), 1);
-				if(music.settings === 5)return setTimeout(() => playTrack(music, connection), 1000);
-				if(music.settings === 6)return setTimeout(() => playTrack(music, connection), 5000);
+				if(music.settings === 1)return setTimeout(() => playTrack(music, connection), 1000);
+				if(music.settings === 2)return setTimeout(() => playTrack(music, connection), 500);
+				if(music.settings === 3)return setTimeout(() => playTrack(music, connection), 400);
+				if(music.settings === 4)return setTimeout(() => playTrack(music, connection), 300);
+				if(music.settings === 5)return setTimeout(() => playTrack(music, connection), 200);
+				if(music.settings === 6)return setTimeout(() => playTrack(music, connection), 100);
+				if(music.settings === 7)return setTimeout(() => playTrack(music, connection), 50);
+				if(music.settings === 8)return setTimeout(() => playTrack(music, connection), 40);
+				if(music.settings === 9)return setTimeout(() => playTrack(music, connection), 30);
+				if(music.settings === 10)return setTimeout(() => playTrack(music, connection), 20);
+				if(music.settings === 11)return setTimeout(() => playTrack(music, connection), 10);
 			}
 			connection.channel.leave();
 			
