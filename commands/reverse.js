@@ -4,6 +4,6 @@ module.exports = class {
 	}
 
 	run(msg, params, flags) {
-		return Promise.resolve(params.split("").reverse().join("") || ".esrever ot gnihton evah I");
+		return params.split("").reverse().join("") || ".esrever ot gnihton evah I";
 	}
 }

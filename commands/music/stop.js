@@ -5,12 +5,17 @@ module.exports = class {
 
 	run(music, msg) {
 		const vc = msg.guild.me.voiceChannel;
-		if(!vc)return "No voice channel to leave.";
+		if(!vc && !music.queue.length)return "No voice channel to leave.";
 		music.queue = []; 
 		if(music.dispatcher)music.dispatcher.end();
-		music.nowPlaying = music.repeat = music.textChannel = false;
+		if(music.leaving){
+			const { timeout, message } = music.leaving;
+			clearTimeout(timeout);
+			if(message)message.delete();
+		}
+		music.nowPlaying = music.repeat = music.textChannel = music.leaving = null;
 		music.djs = [];
-		vc.join().then(connection => connection.channel.leave());
+		if(vc)vc.join().then(connection => connection.channel.leave());
 		return { content: "Stopped playing music.", delete: 5000 };
 	}
 }

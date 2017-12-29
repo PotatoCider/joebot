@@ -1,7 +1,6 @@
 let client;
 module.exports = class {
-	constructor({ client: cli }) {
-		client = cli;
+	constructor() {
 		this.info = "Pong!";
 	}
 
@@ -9,7 +8,7 @@ module.exports = class {
 		const start = Date.now();
 		msg.channel.send("Pong!").then(m => {
 			const elapsed = Date.now() - start;
-			m.edit(`Pong! Latency is \`${ elapsed }ms\`, API Latency is \`${ Math.round(client.ping) }ms\`.`)
+			m.edit(`Pong! Latency is \`${ elapsed }ms\`, API Latency is \`${ Math.round(m.client.ping) }ms\`.`)
 		});
 	}
 }

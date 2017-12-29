@@ -1,7 +1,6 @@
-const prefix = process.env.PREFIX;
-exports.getCommand = content => content.startsWith(prefix) ? content.slice(prefix.length, (content.indexOf(" ", prefix.length)+1 || content.length+1)-1) : "";
+exports.getCommand = (content, prefix) => content.startsWith(prefix) ? content.slice(prefix.length, ~(~content.indexOf(" ", prefix.length) || ~content.length)) : "";
 
-exports.processMsg = (content, cmd) => {
+exports.processMsg = (content, cmd, prefix) => {
 	const params = content.slice(prefix.length + cmd.length).trim().split(/ +/g);
 	const flags = [];
 	for(let i = params.length - 1; i >= 0; i--){

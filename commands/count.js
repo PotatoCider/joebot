@@ -1,7 +1,7 @@
 module.exports = class {
 	constructor() {
 		this.info = "Shows amount of members in a guild."
-		this.aliases = ["size"];
+		this.aliases = ["size", "motd", "total"];
 		this.requiresGuild = true;
 	}
 

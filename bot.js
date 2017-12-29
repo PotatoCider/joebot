@@ -1,43 +1,44 @@
-require("./setup.js"); // setup env variables
 const
-	[ fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client } ]
-		= require("./util/loadModules")("fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js"),
+	[ _, fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client } ]
+		= require("./util/loadModules")( "../setup", "fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js"),
 	client = new Client(),
 /*
-	GitHub :D
-	TODO: Add more commands like mute, 8ball, rate, remindme, urban, music, currency, slots, lotto, vote, repeat cmd(only certain commands like nick, role)
+	Improve music < In progress (Lesser priority)
+	Improve help command to further give info on how to use command. 
+
+	TODO: Add more commands like mute, 8ball, rate, remindme, currency, slots, lotto, vote
 	Add Check position to mod commands.
-	Add guild options.
 	Custom prefixes for different guilds.
-	Improve help command to further give info on how to use command.
 	Create -debug command to debug all commands. 
-	Use SQL Databases 
-	Add Salary system(Using your daily energy)
-		- Achievements
-		- Education
-		- Promotion (Done!)
 	Add ignore channels
 	When joined a guild, send message and tell the admins which commands need which permissions
 	Add a permissions system where admin can restrict commands from certain roles/players
 	User created commands?
+
+	Now Playing Channel?
 	
 	Add comments explaining what each block of code does
-	Add client.bot for communicating between command modules?
 	Add restarting modules
 
 	Add deleteall command which basically removes and adds the same channel with the same perms
 */
-	guilds = {}, commands = {};
 
-client.on("message", msg => { 
-	if(msg.author.bot || !client.set)return;
+	self = client.self = { client, guilds: {}, commands: {}, set: false, setups: [], cleanups: [] };
+
+client.on("message", msg => {
+	if(msg.author.bot || !self.set)return;
+
+	// Xp system? 
+
+	const prefix = process.env.PREFIX; // self.guilds[msg.guild.id].prefix;
+	if(!msg.content.startsWith(prefix))return;
 	const channel = msg.channel,
-		name = getCommand(msg.content).toLowerCase(),
-		cmd = commands[name];
+		name = getCommand(msg.content, prefix).toLowerCase(),
+		cmd = self.commands[name];
 	if(!cmd)return;
 	if(cmd.requiresGuild && !msg.guild)return channel.send("This command can only be used in guilds!");
 
-	const { content, flags } = processMsg(msg.content, name),
+	const { content, flags } = processMsg(msg.content, name, prefix),
 		index = flags.indexOf("del");
 	if(index !== -1){
 		msg.delete();
@@ -47,37 +48,63 @@ client.on("message", msg => {
 		selfMissing = msg.guild ? missingPerms(channel, cmd.perms, msg.guild.me) : [];
 
 	let run;
-	if(selfMissing.length)run = `I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`;
-		else if(missing.length)run = "You don't have enough permissions >:(";
+	if(missing.length)run = "You don't have enough permissions >:(";
+		else if(selfMissing.length)run = `I do not have the permission${ selfMissing.length === 1 ? "s" : "" }: \`${ selfMissing.join(", ") }\`.`;
 		else run = cmd.run(msg, content, flags);
 	
 	Promise.resolve(run).then(output => {
 		if(output)channel.send(output.content || output, output.options).then(m => {
 			if(output.delete)m.delete(output.delete);
 		});
-	});
+	}).catch(err => errorHandler(err, msg, cmd.e));
 
 })
 
-	.on("guildCreate", guild => client.set && commands.music.setup(guild.id))
+.on("guildCreate", guild => {
+	if(!self.set)return;
+	const { setups, guilds } = self.setups;
+	guilds[guild.id] = { id: guild.id };
+	for(let i = 0; i < setups.length; i++)setups[i](guild.id);
+})
 
-	.on("guildDelete", guild => client.set && delete guilds[guild.id])
+.on("guildDelete", guild => {
+	if(!self.set)return;
+	const cleanups = self.cleanups,
+		pending = [];
+	for(let i = 0; i < cleanups.length; i++){
+		pending[i] = cleanups[i](guild.id);
+	}
+	Promise.all(pending).then(() => delete self.guilds[guild.id]);
+})
 
-	.on("voiceStateUpdate", (oldMem, newMem) => client.set && commands.music.vcUpdate(newMem))
+.on("voiceStateUpdate", (oldMem, newMem) => self.set && self.commands.music.vcUpdate(newMem))
 
-	.on("error", errorHandler)
+.on("error", errorHandler)
 
-	.on("warn", console.log)
+.on("warn", console.log)
 
-	.login(process.env.TOKEN).then(() => {
-		console.log("Login successful!");
-		loadCommands(commands, "commands", { client, commands, guilds }).then(() => {
-			// Change this to another property
-			client.emit("set");
-			client.set = true;
-			console.log(`The bot is online!`);
-		});
+.login(process.env.TOKEN).then(() => {
+	console.log("Login successful!");
+	loadCommands(self.commands, "commands", self).then(() => {
+		const ids = client.guilds.keyArray(),
+			setups = self.setups,
+			pending = [];
+		for(let i = 0; i < ids.length; i++){
+			const id = ids[i];
+			self.guilds[id] = { _id: id };
+		}
+
+		for(let i = 0; i < setups.length; i++){
+			pending[i] = setups[i](ids);
+		}
+		return Promise.all(pending);
+	}).then(() => {
+		client.emit("set");
+		self.set = true;
+		console.log(`The bot is online!`);
 	});
+});
+
 
 process.on("unhandledRejection", errorHandler)
 	.on("uncaughtException", errorHandler);

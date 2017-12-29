@@ -1,14 +1,13 @@
-let commands;
 
 module.exports = class {
-	constructor(cmds) {
+	constructor(music) {
 		this.aliases = ["q"];
-		commands = cmds;
+		this.commands = music.commands;
 	}
 	
 	run(music) {
 		const queue = music.queue,
-			np = commands.nowplaying.run(music);
+			np = this.commands.nowplaying.run(music);
 		let message = (music.nowPlaying ? np : "") + (music.queue.length ? "" : "Queue is empty.");
 		for(let i = 0; i < queue.length; i++){
 			const vid = queue[i];

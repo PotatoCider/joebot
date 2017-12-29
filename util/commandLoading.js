@@ -5,13 +5,15 @@ const
 		const cmd = path.split("/").pop().slice(0, -3);
 		if(reload && target[cmd])delete require.cache[require.resolve(path)];
 		const command = new (require(path))(cmdParams);
-		return Promise.resolve(command).then(command => {
-			const aliases = command.aliases || [];
-			for(const alias of aliases)if(!target[alias])Object.defineProperty(target, alias, {
-				get: function() { return this[cmd]; }
-			});
-			target[cmd] = command;
+
+		if(command.ignore)return;
+		const aliases = command.aliases || [];
+		for(const alias of aliases)if(!target[alias])Object.defineProperty(target, alias, {
+			get: function() { return this[cmd]; }
 		});
+
+		target[cmd] = command;
+		return command.init;
 	},
 
 	loadCommands = exports.loadCommands = (target, path, cmdParams, reload) => {

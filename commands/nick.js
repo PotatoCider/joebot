@@ -17,7 +17,7 @@ module.exports = class {
 				
 			getMembers(mention, msg.guild).then(member => {
 				if(!member)return resolve("Changed nobody's nick.");
-				resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem }'s nickname${ nick ? ` from ${ mem.displayName } to ${ nick }.` + nick : "" }.`));
+				resolve(member.setNickname(nick).then(mem => `${ nick ? "Changed" : "Resetted" } ${ mem }'s nickname${ nick ? ` from ${ mem.displayName } to ${ nick }.` : "" }.`));
 			});
 		});
 	}

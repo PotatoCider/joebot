@@ -1,4 +1,7 @@
-const fetchMember = (mention, guild) => guild.fetchMember(mention.replace(/<@!?([0-9]+)>/, "$1"));
+const fetchMember = (mention, guild) => guild.client
+	.fetchUser(mention.replace(/<@!?([0-9]+)>/, "$1"))
+	.then(user => guild.fetchMember(user));
+
 
 module.exports = (mentions, guild) => {
 	if(mentions instanceof Array){

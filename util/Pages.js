@@ -1,12 +1,6 @@
 const
 	[ Embed, react, awaitUserReact ] = require("./loadModules.js")("Embed", "react", "awaitUserReaction"),
-	s_msg = Symbol("msg"),
-	s_sent = Symbol("sent"),
-	s_watch = Symbol("watch"),
-	s_pending = Symbol("pending"),
-	s_index = Symbol("index"),
-	s_setIndex = Symbol("setIndex"),
-	s_collector = Symbol("collector"),
+	[ s_msg, s_sent, s_watch, s_pending, s_index, s_setIndex, s_collector ] = Array(7).fill().map(Symbol)
 	RichEmbedProps = ["author", "color", "description", "fields", "file", "footer", "image", "thumbnail", "timestamp", "title", "url"];
 module.exports = class Pages extends Embed {
 
@@ -66,7 +60,7 @@ module.exports = class Pages extends Embed {
 		return i;
 	}
 
-	[s_watch](contentLoading) { // Private
+	[s_watch]() { // Private
 		const msg = this[s_sent],
 			author = this[s_msg].author,
 			onceReact = awaitUserReact(msg, author, this.timeout, this.options);
@@ -82,7 +76,7 @@ module.exports = class Pages extends Embed {
 			}else if(chosen === "▶" || chosen === "◀"){ // next or prev
 				reaction.remove(author);
 
-				if(this[s_pending])return this[s_watch](contentLoading);
+				if(this[s_pending])return this[s_watch]();
 				this[s_pending] = true;
 
 				for(const key of RichEmbedProps)this[key] = key === "fields" ? [] : null;
@@ -99,7 +93,7 @@ module.exports = class Pages extends Embed {
 					.then(() => this[s_pending] = false);
 			}else this.onSelect(reaction);
 
-			this[s_watch](contentLoading);
+			this[s_watch]();
 		});
 
 		setImmediate(() => {
