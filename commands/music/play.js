@@ -1,10 +1,15 @@
 const
-	[ Pages, ytdl, youtube, { resolveDuration }, images, errorHandler ] = require("../../util/loadModules.js")
-	("Pages", "ytdl-core", "youtube", "time", "./images", "error"),
+	[ Pages, ytdl, youtube, getVideoId, { resolveDuration, resolveIsoDate }, images, errorHandler ] = require("../../util/loadModules.js")
+	("Pages", "ytdl-core", "youtube", "get-youtube-id", "time", "./images", "error"),
 
 	playTrack = (music, connection) => {
-		const vid = music.queue.shift(),
-			stream = ytdl("https://www.youtube.com/watch?v=" + vid.id, { filter: "audioonly" });
+		
+		const vid = music.queue.shift();
+		if(vid.upcoming)return resolve({ content: `This livestream is still upcoming. It will be live on ${ resolveIsoDate(vid.scheduledStartTime) } UTC.`, delete: 60000 });
+		const stream = ytdl(
+				"https://www.youtube.com/watch?v=" + vid.id, 
+				vid.live ? {} : { filter: "audioonly" }
+			);
 		music.nowPlaying = vid;
 
 		music.dispatcher = connection.playStream(stream).once("end", () => {
@@ -16,7 +21,7 @@ const
 			vid.channel.send("End of queue.").then(msg => msg.delete(10000));
 		});
 
-		vid.channel.send(`**Now playing: \`${ vid.title }\` by** ${ vid.channelTitle }.`).then(msg => msg.delete(10000));
+		vid.channel.send(`**Now ${ vid.live ? "Streaming" : "Playing" }: \`${ vid.title }\` by** ${ vid.channelTitle }.`).then(msg => msg.delete(10000));
 	},
 
 	initQueueAdd = (message, music, resolve) => {
@@ -30,9 +35,10 @@ const
 				let content = "";
 				if(vid !== "play"){
 					const queuePush = vid => music.queue.push(Object.assign(vid, { dj: message.member.id, channel: message.channel }));
+					if(vid.length === 1)vid = vid[0];
 					if(vid instanceof Array){
 						for(const v of vid)queuePush(v);
-						content = `Added **${ vid.length } items** to queue from https://www.youtube.com/playlist?list=${ vid[0].playlistId }`;
+						content = `Added **${ vid.length } items** to queue from https://www.youtube.com/playlist?list=${ vid[0].id }`;
 					}else{
 						queuePush(vid);
 						content = `**Added to queue: \`${ vid.title }\` by** ${ vid.channelTitle }.`;
@@ -52,16 +58,16 @@ const
 			return (() => {
 				const sliced = vids.slice(i, i + 5);
 				if(typeof vids[i] !== "string")return Promise.resolve(sliced);
-				return youtube.fetchVideoInfo(sliced, { maxResults: 5 });
+				return youtube.fetchVideoInfo(sliced, 5);
 			})().then(info => {
-
 				vids.splice(i, i + 5, ...info);
 				embed.setAuthor("Youtube") 
-				.setThumbnail(images.music)
+				.setThumbnail(images.music)	
 				.setFooter(`Reply a number to choose or "cancel" to cancel`);
 				for(let i = 0; i < 5; i++){
 					const vid = info[i];
-					embed.addField(`**Option ${ i+1 }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vid.id }) (${ resolveDuration({ iso: vid.duration, yt: true }) }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
+					const duration = vid.live ? "Live" : vid.upcoming ? "Upcoming" : resolveDuration({ iso: vid.duration, yt: true });
+					embed.addField(`**Option ${ i+1 }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vid.id }) (${ duration }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
 				}
 
 			});
@@ -75,38 +81,48 @@ const
 			{ time: 20000 }
 		).once("collect", reply => queueAdd(results[reply.content - 1 + page * 5], { m, sent, reply }));
 		return m;
-	}
+	},
+	getPlaylistId = url => {
+		const id = url.match(/^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:watch|playlist)\?.*&?list=(.+?)(?:&.*)*$/);
+		if(id)return id[1];
+	};
 
 let commands;
 
 module.exports = class {
-	constructor(cmds) {
-		commands = cmds;
+	constructor(music) {
+		commands = music.commands;
 		this.aliases = ["p"];
+
 	}
 
-	run(music, message, query, flags) {
+	run(music, message, query, flags, forcePlaylist = false) {
 		return new Promise(resolve => {
 			const queueAdd = initQueueAdd(message, music, resolve);
 			if(music.queue.length && !query && !music.nowPlaying)return queueAdd("play");
 			if(music.dispatcher && music.dispatcher.paused)return resolve(commands.resume.run(music));
-			if(!query)return resolve("You must provide a title/link to play a video!");
-			const selection = ~~flags.find(n => n >= 1 && n <= 50);
-			youtube.search(
-				query, 
-				selection ? { maxResults: selection } : undefined
-			).then(videoIds => {
+			if(!query)return resolve("You must provide a title/link to play a video/playlist!");
+			if(flags.includes("playlist") || flags.includes("list"))forcePlaylist = true;
+			const selection = ~~flags.find(n => n >= 1 && n <= 50),
+				playlist = getPlaylistId(query),
+				video = getVideoId(query, { fuzzy: false });
+			if(forcePlaylist && !playlist)return resolve("Invalid youtube playlist.");
+			Promise.resolve(video || playlist || youtube.search(query, { maxResults: selection })).then(videoIds => {
+				if(!forcePlaylist && video)return [video];
+				if(playlist)return youtube.fetchPlaylist(playlist);
 
 				if(!selection)return videoIds;
 
 				if(videoIds.length !== selection){ // results.length should be equal to selection.
-					resolve("Selection out of range."); 
-					return []; // Following .then will return immediately due to empty array. Note: Promises only resolve once.
+					return resolve("Selection out of range."); 
 				}
 				return [videoIds.pop()];
 			}).then(results => {
-				if(!results.length)return resolve("Sorry, no results found."); 
-				if(results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(info[0]));
+				if(!results.length){
+					if(video)return resolve("Invalid video link.");
+					if(playlist)return resolve("Empty/Invalid playlist.");
+				}
+				if(playlist || results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(playlist ? info : info[0]));
 
 				let collector, awaitSelection, createSelection;
 

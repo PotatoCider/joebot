@@ -9,7 +9,7 @@ try {
 } finally {
 	const { TOKEN, MONGODB_URI, YT_API_KEY, PREFIX } = process.env;
 	if(!TOKEN)throw "Bot token is not specified in config.json or process.env!";
-	// if(!MONGODB_URI)throw "Mongo Database URL is not specified in config.json or process.env!";
+	if(!MONGODB_URI)throw "Mongo Database URL is not specified in config.json or process.env!";
 	if(!YT_API_KEY)throw "Youtube API Key v3 is not specified in config.json or process.env!";
 	if(!PREFIX)throw "Bot prefix is not specified in config.json or process.env!";
 

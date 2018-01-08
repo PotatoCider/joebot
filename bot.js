@@ -8,7 +8,7 @@ const
 
 	TODO: Add more commands like mute, 8ball, rate, remindme, currency, slots, lotto, vote
 	Add Check position to mod commands.
-	Custom prefixes for different guilds.
+	Custom prefixes for different guilds. (Need a remote database)
 	Create -debug command to debug all commands. 
 	Add ignore channels
 	When joined a guild, send message and tell the admins which commands need which permissions
@@ -16,6 +16,8 @@ const
 	User created commands?
 
 	Now Playing Channel?
+	Support livestreams (Kinda done)
+	Fix pages
 	
 	Add comments explaining what each block of code does
 	Add restarting modules
@@ -30,7 +32,7 @@ client.on("message", msg => {
 
 	// Xp system? 
 
-	const prefix = process.env.PREFIX; // self.guilds[msg.guild.id].prefix;
+	const prefix = self.guilds[msg.guild.id].prefix;
 	if(!msg.content.startsWith(prefix))return;
 	const channel = msg.channel,
 		name = getCommand(msg.content, prefix).toLowerCase(),
@@ -40,7 +42,7 @@ client.on("message", msg => {
 
 	const { content, flags } = processMsg(msg.content, name, prefix),
 		index = flags.indexOf("del");
-	if(index !== -1){
+	if(~index){
 		msg.delete();
 		flags.splice(index, 1);
 	}
@@ -53,7 +55,7 @@ client.on("message", msg => {
 		else run = cmd.run(msg, content, flags);
 	
 	Promise.resolve(run).then(output => {
-		if(output)channel.send(output.content || output, output.options).then(m => {
+		if(output)channel.send(output.content || output, Object.assign(output.options || {}, { split: true })).then(m => {
 			if(output.delete)m.delete(output.delete);
 		});
 	}).catch(err => errorHandler(err, msg, cmd.e));
@@ -62,19 +64,21 @@ client.on("message", msg => {
 
 .on("guildCreate", guild => {
 	if(!self.set)return;
-	const { setups, guilds } = self.setups;
-	guilds[guild.id] = { id: guild.id };
-	for(let i = 0; i < setups.length; i++)setups[i](guild.id);
+	const { setups, guilds } = self,
+		id = guild.id;
+	guilds[id] = { _id: id };
+	for(let i = 0; i < setups.length; i++)setups[i](id);
 })
 
 .on("guildDelete", guild => {
 	if(!self.set)return;
 	const cleanups = self.cleanups,
-		pending = [];
+		pending = [], 
+		id = guild.id;
 	for(let i = 0; i < cleanups.length; i++){
-		pending[i] = cleanups[i](guild.id);
+		pending[i] = cleanups[i](id);
 	}
-	Promise.all(pending).then(() => delete self.guilds[guild.id]);
+	Promise.all(pending).then(() => delete self.guilds[id]);
 })
 
 .on("voiceStateUpdate", (oldMem, newMem) => self.set && self.commands.music.vcUpdate(newMem))
@@ -93,14 +97,13 @@ client.on("message", msg => {
 			const id = ids[i];
 			self.guilds[id] = { _id: id };
 		}
-
 		for(let i = 0; i < setups.length; i++){
 			pending[i] = setups[i](ids);
 		}
 		return Promise.all(pending);
 	}).then(() => {
-		client.emit("set");
 		self.set = true;
+		client.emit("set");
 		console.log(`The bot is online!`);
 	});
 });

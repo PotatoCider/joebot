@@ -26,20 +26,26 @@ exports.resolveDuration = ({ms = 0, s = 0, m = 0, h = 0, d = 0, iso, format = fa
 	}
 	if(format){
 		return (
-			(d && format.d ? `${d}d ` : "") + 
-			(h && format.h ? `${h}h ` : "") + 
-			(m && format.m ? `${m}m ` : "") + 
-			(s && format.s ? `${s}s ` : "") + 
-			(ms && format.ms ? `${ms}ms `: "")
-			).slice(0, -1);
-	} 
+			(format.d && d ? `${d}d ` : "") + 
+			(format.h && h ? `${h}h ` : "") + 
+			(format.m && m ? `${m}m ` : "") + 
+			(format.s && s ? `${s}s ` : "") + 
+			(format.ms && ms ? `${ms}ms `: "")
+			).slice(0, -1)
+	}
 	return { ms, s, m, h, d };
 };
 
-exports.resolveDate = iso => {
-	if(iso.length > 10)iso = iso.slice(0, 10);
-	iso = iso.split("-").reverse();
-	iso[0] = ~~iso[0];
-	iso[1] = months[~~iso[1] - 1];
-	return iso.join(" ");
+exports.resolveIsoDate = iso => {
+	let [ _, y, mm, d, h, m ] = iso.match(/(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):\d\d\.\d{3}Z/),
+		suffix = "am";
+
+	h = ~~h;
+	if(h >= 12)suffix = "pm";
+	if(h > 12)h -= 12;
+
+	d = ~~d;
+	mm = months[mm - 1];
+
+	return d + " " + mm + " " + y + " at " + h + ":" + m + suffix;
 }

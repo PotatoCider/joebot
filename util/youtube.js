@@ -36,12 +36,14 @@ exports.fetchPlaylist = (id, pageToken) =>
 			pageToken,
 			fields: "items/snippet/resourceId/videoId,nextPageToken"
 		}
-	}).then(({ items, nextPageToken }) => new Promise(resolve => {
-		if(nextPageToken){
-			exports.fetchPlaylist(id, nextPageToken)
-				.then(fetched => resolve(items.push(...fetched)));
-		}else resolve(items); 
-	})).then(items => {
+	}).then(({ items, nextPageToken }) => {
+		if(!nextPageToken)return items;
+		return exports.fetchPlaylist(id, nextPageToken)
+			.then(fetched => {
+				items.push(...fetched);
+				return items;
+			});
+	}).then(items => {
 		if(pageToken)return items;
 		for(let i = 0; i < items.length; i++){
 			items[i] = items[i].snippet.resourceId.videoId;
@@ -49,33 +51,32 @@ exports.fetchPlaylist = (id, pageToken) =>
 		return items;
 	});
 
-exports.fetchVideoInfo = (ids, { pageToken, maxResults = 50 } = {}) =>
+exports.fetchVideoInfo = (ids, maxResults = 50, big = false) => // pageToken + id parameter not supported.
 	youtubeRequest({
 		url: "videos",
 		qs: {
-			part: "snippet,contentDetails,statistics",
-			id: ids.toString(), // Takes care of both Array and Strings.
+			part: "snippet,contentDetails,statistics,liveStreamingDetails",
+			id: ids.slice(0, 50).toString(), // Takes care of both Array and Strings.
 			maxResults,
-			pageToken,
-			fields: "items(contentDetails/duration,snippet(categoryId,channelId,channelTitle,publishedAt,tags,thumbnails/maxres/height,title),statistics(commentCount,dislikeCount,likeCount,viewCount)),nextPageToken"
+			fields: "items(contentDetails/duration,liveStreamingDetails(actualEndTime,actualStartTime,concurrentViewers,scheduledStartTime),snippet(categoryId,channelId,channelTitle,publishedAt,tags,thumbnails/maxres/height,title,liveBroadcastContent),statistics(commentCount,dislikeCount,likeCount,viewCount))"
 		}
-	}).then(({ items, nextPageToken }) => new Promise(resolve => {
-		if(nextPageToken){
-			exports.fetchVideoInfo(ids, { pageToken: nextPageToken })
-				.then(fetched => resolve(items.push(...fetched)));
-		}else resolve(items);
-	})).then(items => {
-		if(pageToken)return items;
+	}).then(({ items }) => {
+		if(ids.length <= 50)return items;
+		return exports.fetchVideoInfo(ids.slice(50), 50, true).then(fetched => {
+			items.push(...fetched);
+			return items;
+		}); 
+	}).then(items => {
+		if(big)return items;
 		if(!(ids instanceof Array))ids = [ids];
 		for(let i = 0; i < items.length; i++){
-			const { snippet, contentDetails, statistics } = items[i];
-			items[i] = {
-				duration: contentDetails.duration,
-				...snippet,
-				...statistics
-			};
-			items[i].id = ids[i];
-			items[i].thumbnail = `https://i.ytimg.com/vi/${ ids[i] }/${ snippet.thumbnails ? "maxres" : "mq" }default.jpg`;
+			const { snippet, contentDetails, statistics, liveStreamingDetails } = items[i];
+			items[i] = Object.assign(snippet, contentDetails, statistics, liveStreamingDetails, {
+				id: ids[i],
+				live: snippet.liveBroadcastContent === "live",
+				upcoming: snippet.liveBroadcastContent === "upcoming",
+				thumbnail: `https://i.ytimg.com/vi/${ ids[i] }/${ snippet.thumbnails ? "maxres" : "mq" }default.jpg`
+			});
 		}
 		return items;
 	});

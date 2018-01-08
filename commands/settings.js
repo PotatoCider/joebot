@@ -5,8 +5,6 @@ module.exports = class {
 		this.aliases = ["config", "options"];
 		this.requiresGuild = true;
 		this.info = "Guild settings. (Prefix only for now)";
-		this.ignore = true;
-		return this;
 
 		self = tmpSelf;
 
