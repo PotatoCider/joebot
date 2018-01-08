@@ -107,7 +107,8 @@ module.exports = class {
 				playlist = getPlaylistId(query),
 				video = getVideoId(query, { fuzzy: false });
 			if(forcePlaylist && !playlist)return resolve("Invalid youtube playlist.");
-			Promise.resolve(video || playlist || youtube.search(query, { maxResults: selection })).then(videoIds => {
+
+			Promise.resolve(video || playlist || youtube.search(query, { maxResults: selection || 50 })).then(videoIds => {
 				if(!forcePlaylist && video)return [video];
 				if(playlist)return youtube.fetchPlaylist(playlist);
 
@@ -146,7 +147,6 @@ module.exports = class {
 						options: [...Pages.options.slice(0, -1), "❌"],
 						limit: 10
 					});
-
 				initSelection(pages, results).then(fn => {
 					createSelection = fn;
 					return pages.send(`This selection will timeout in 20 seconds.`);
