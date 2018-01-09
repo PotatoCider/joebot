@@ -8,13 +8,13 @@ const
 
 	TODO: Add more commands like mute, 8ball, rate, remindme, currency, slots, lotto, vote
 	Add Check position to mod commands.
-	Custom prefixes for different guilds. (Need a remote database)
-	Create -debug command to debug all commands. 
+`	Create -debug command to debug all commands. 
 	Add ignore channels
 	When joined a guild, send message and tell the admins which commands need which permissions
 	Add a permissions system where admin can restrict commands from certain roles/players
 	User created commands?
 
+	-m view command to view image at current time? 
 	Now Playing Channel?
 	Support livestreams (Kinda done)
 	Fix pages
