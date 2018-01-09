@@ -1,6 +1,6 @@
 {
   "name": "joebot",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "My bot :D",
   "main": "bot.js",
   "scripts": {
