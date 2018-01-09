@@ -13,17 +13,17 @@
     "bufferutil": "^3.0.3",
     "discord.js": "^11.2.1",
     "erlpack": "github:hammerandchisel/erlpack",
-    "ffmpeg-binaries": "^3.2.2-3",
+    "ffmpeg-binaries": "^3.2.2",
     "get-youtube-id": "^1.0.0",
     "is-builtin-module": "^1.0.0",
     "libsodium-wrappers": "^0.5.4",
-    "mongodb": "^3.0.0-rc0",
+    "mongodb": "^3.0.1",
     "node-opus": "^0.2.7",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
     "urban-dictionary-es6": "^1.0.1",
     "uws": "^0.14.5",
-    "ytdl-core": "^0.17.1"
+    "ytdl-core": "^0.18.7"
   },
   "engines": {
     "node": "8.7.0",

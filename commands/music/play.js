@@ -13,11 +13,15 @@ const
 		music.nowPlaying = vid;
 
 		music.dispatcher = connection.playStream(stream).once("end", () => {
-			if(music.repeat)music.queue.push(vid);
+			console.log("Played for", resolveDuration({ ms: music.dispatcher.time, format: { ms:1, s:1, m: 1, h:1, d:1 } }));
+			if(music.queue.length){
+				if(music.repeat)return music.queue.push(vid);
+				setTimeout(() => playTrack(music, connection), 5);
+				return;
+			}
+
 			music.nowPlaying = music.dispatcher = null;
-			if(music.queue.length)return setTimeout(() => playTrack(music, connection), 5);
 			connection.channel.leave();
-			
 			vid.channel.send("End of queue.").then(msg => msg.delete(10000));
 		});
 

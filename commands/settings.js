@@ -7,7 +7,7 @@ module.exports = class {
 		this.info = "Guild settings. (Prefix only for now)";
 
 		self = tmpSelf;
-
+		if(self.set && self.db)return;
 		this.init = mongo.connect(process.env.MONGODB_URI).then(client => {
 			const db = self.db = client.db("joebot"),
 				collection = db.collection("guilds"),
@@ -29,6 +29,7 @@ module.exports = class {
 					const id = guild._id;
 					if(!guilds[id])toDelete.push(id);
 					else Object.assign(guilds[id], guild);
+
 					available[id] = true;
 					count++;
 				}, err => {
@@ -37,15 +38,18 @@ module.exports = class {
 						pending[0] = collection.deleteMany({ _id: { $in: toDelete } });
 						console.log(`Deleted ${ toDelete.length } guilds in db.`);
 					}
+
 					if(count - toDelete.length === ids.length)return resolve(pending[0]);
 					for(let i = 0; i < ids.length; i++){
 						const id = ids[i];
 						if(available[id])continue;
+
 						toAdd.push({ _id: id, prefix });
 						guilds[id].prefix = prefix;
 					}
 					if(!toAdd.length)throw new Error("length doesn't equate");
 					pending[1] = collection.insertMany(toAdd);
+
 					console.log(`Inserted ${ toAdd.length } guilds in db.`);
 					Promise.all(pending).then(resolve);
 				}); 
