@@ -13,7 +13,7 @@
     "bufferutil": "^3.0.3",
     "discord.js": "^11.2.1",
     "erlpack": "github:hammerandchisel/erlpack",
-    "ffmpeg-binaries": "^3.2.2",
+    "ffmpeg-binaries": "^3.2.2-3",
     "get-youtube-id": "^1.0.0",
     "is-builtin-module": "^1.0.0",
     "libsodium-wrappers": "^0.5.4",
