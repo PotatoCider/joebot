@@ -18,6 +18,8 @@ const
 	Now Playing Channel?
 	Support livestreams (Kinda done)
 	Fix pages
+	Translate
+	Weather
 	
 	Add comments explaining what each block of code does
 	Add restarting modules
@@ -60,6 +62,7 @@ client.on("message", msg => {
 		});
 	}).catch(err => errorHandler(err, msg, cmd.e));
 
+	
 })
 
 .on("guildCreate", guild => {

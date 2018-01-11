@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "bufferutil": "^3.0.3",
+    "crc-32": "^1.1.1",
     "discord.js": "^11.2.1",
     "erlpack": "github:hammerandchisel/erlpack",
     "ffmpeg-binaries": "^3.2.2-3",

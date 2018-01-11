@@ -61,10 +61,10 @@ const
 			const i = page * 5;
 			return (() => {
 				const sliced = vids.slice(i, i + 5);
-				if(typeof vids[i] !== "string")return Promise.resolve(sliced);
+				if(vid.id)return Promise.resolve(sliced);
 				return youtube.fetchVideoInfo(sliced, 5);
 			})().then(info => {
-				vids.splice(i, i + 5, ...info);
+				if(vid.id)vids.splice(i, i + 5, ...info);
 				embed.setAuthor("Youtube") 
 				.setThumbnail(images.music)	
 				.setFooter(`Reply a number to choose or "cancel" to cancel`);
