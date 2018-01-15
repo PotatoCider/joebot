@@ -1,6 +1,6 @@
 const
-	[ Pages, ytdl, youtube, getVideoId, { resolveDuration, resolveIsoDate }, images, errorHandler ] = require("../../util/loadModules.js")
-	("Pages", "ytdl-core", "youtube", "get-youtube-id", "time", "./images", "error"),
+	[ Pages, ytdl, youtube, getPlaylistId, getVideoId, { resolveDuration, resolveIsoDate }, images, errorHandler ] = require("../../util/loadModules.js")
+	("Pages", "ytdl-core", "youtube", "getPlaylistId", "get-youtube-id", "time", "./images", "error"),
 
 	playTrack = (music, connection) => {
 		
@@ -58,13 +58,14 @@ const
 
 	initSelection = (embed, vids) => {
 		const createSelection = page => {
-			const i = page * 5;
+			const i = page * 5,
+				id = vids[i].id
 			return (() => {
 				const sliced = vids.slice(i, i + 5);
-				if(vid.id)return Promise.resolve(sliced);
+				if(id)return Promise.resolve(sliced);
 				return youtube.fetchVideoInfo(sliced, 5);
 			})().then(info => {
-				if(vid.id)vids.splice(i, i + 5, ...info);
+				if(id)vids.splice(i, i + 5, ...info);
 				embed.setAuthor("Youtube") 
 				.setThumbnail(images.music)	
 				.setFooter(`Reply a number to choose or "cancel" to cancel`);
@@ -85,10 +86,6 @@ const
 			{ time: 20000 }
 		).once("collect", reply => queueAdd(results[reply.content - 1 + page * 5], { m, sent, reply }));
 		return m;
-	},
-	getPlaylistId = url => {
-		const id = url.match(/^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:watch|playlist)\?.*&?list=(.+?)(?:&.*)*$/);
-		if(id)return id[1];
 	};
 
 let commands;
@@ -127,7 +124,7 @@ module.exports = class {
 					if(video)return resolve("Invalid video link.");
 					if(playlist)return resolve("Empty/Invalid playlist.");
 				}
-				if(playlist || results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(playlist ? info : info[0]));
+				if(playlist || results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(playlist ? Object.assign(info, { playlistId: playlist }) : info[0]));
 
 				let collector, awaitSelection, createSelection;
 
