@@ -113,7 +113,7 @@ module.exports = class {
 				if(!forcePlaylist && video)return [video];
 				if(playlist)return youtube.fetchPlaylist(playlist);
 
-				if(!selection)return videoIds;
+				if(!selection)return youtube.fetchVideoInfo(videoIds);
 
 				if(videoIds.length !== selection){ // results.length should be equal to selection.
 					return resolve("Selection out of range."); 
