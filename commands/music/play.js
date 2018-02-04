@@ -143,7 +143,7 @@ module.exports = class {
 						},
 						timeout: 20000,
 						options: [...Pages.options.slice(0, -1), "❌"],
-						limit: Math.ceil(results.length / 5);
+						limit: Math.ceil(results.length / 5)
 					});
 				initSelection(pages, results).then(fn => {
 					createSelection = fn;
