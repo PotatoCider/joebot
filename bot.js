@@ -15,7 +15,6 @@ const
 	Add a permissions system where admin can restrict commands from certain roles/players
 	User created commands?
 
-
 	-m view command to view image at current time? 
 	Now Playing Channel?
 	Support livestreams (Change -m pause to end the livestream and play it back when it resumes)
