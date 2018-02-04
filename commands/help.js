@@ -26,7 +26,7 @@ module.exports = class { // Add in "Guilds" Section for guild required commmands
 		this.aliases = ["halp", "commands"];
 		commands = self.commands;
 		
-		self.set ? setList() : self.client.once("set", setList);
+		self.set ? setList() : self.once("set", setList);
 	}
 
 	run(msg, params, flags) {

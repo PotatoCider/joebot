@@ -58,7 +58,7 @@ exports.fetchVideoInfo = (ids, maxResults = 50, big = false) => // pageToken + i
 			part: "snippet,contentDetails,statistics,liveStreamingDetails",
 			id: ids.slice(0, 50).toString(), // Takes care of both Array and Strings.
 			maxResults,
-			fields: "items(contentDetails/duration,liveStreamingDetails(actualEndTime,actualStartTime,concurrentViewers,scheduledStartTime),snippet(categoryId,channelId,channelTitle,publishedAt,tags,thumbnails/maxres/height,title,liveBroadcastContent),statistics(commentCount,dislikeCount,likeCount,viewCount))"
+			fields: "items(contentDetails/duration,liveStreamingDetails(actualEndTime,actualStartTime,concurrentViewers,scheduledStartTime),snippet(categoryId,channelId,channelTitle,publishedAt,thumbnails/maxres/height,title,liveBroadcastContent),statistics(commentCount,dislikeCount,likeCount,viewCount))"
 		}
 	}).then(({ items }) => {
 		if(ids.length <= 50)return items;

@@ -2,8 +2,8 @@ const months =  ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 
 exports.resolveDuration = ({ms = 0, s = 0, m = 0, h = 0, d = 0, iso, format = false, yt = false}) => {
 	if(iso){
-		if(iso[0] !== "P")throw new Error("Invaild params.");
 		const time = iso.match(/P(?:(\d*)D)?T(?:(\d*)H)?(?:(\d*)M)?(?:(\d*)S)?/);
+		if(!time)throw new Error("Invaild params.");
 		d = ~~time[1] || 0;
 		h = ~~time[2] || 0;
 		m = ~~time[3] || 0;

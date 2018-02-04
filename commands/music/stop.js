@@ -6,7 +6,8 @@ module.exports = class {
 	run(music, msg) {
 		const vc = msg.guild.me.voiceChannel;
 		if(!vc && !music.queue.length)return "No voice channel to leave.";
-		music.queue = []; 
+		const connection = vc.connection;
+		music.queue = [];
 		if(music.dispatcher)music.dispatcher.end();
 		if(music.leaving){
 			const { timeout, message } = music.leaving;
@@ -14,8 +15,7 @@ module.exports = class {
 			if(message)message.delete();
 		}
 		music.nowPlaying = music.repeat = music.textChannel = music.leaving = null;
-		music.djs = [];
-		if(vc)vc.join().then(connection => connection.channel.leave());
+		Promise.resolve(connection || vc.join()).then(connection => connection.channel.leave());
 		return { content: "Stopped playing music.", delete: 5000 };
 	}
 }

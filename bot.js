@@ -1,14 +1,15 @@
 const
-	[ _, fs, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client } ]
-		= require("./util/loadModules")( "../setup", "fs", "error", "perms", "commandProcessing", "commandLoading", "discord.js"),
+	[ _, fs, { EventEmitter }, errorHandler, missingPerms, { processMsg, getCommand }, { loadCommand, loadCommands }, { Client }, { MongoClient: mongo } ]
+		= require("./util/loadModules")( "../setup", "fs", "events", "error", "perms", "commandProcessing", "commandLoading", "discord.js", "mongodb"),
 	client = new Client(),
 /*
+	Playlists!!
 	Improve music < In progress (Lesser priority)
 	Improve help command to further give info on how to use command. 
 
-	TODO: Add more commands like mute, 8ball, rate, remindme, currency, slots, lotto, vote
-	Add Check position to mod commands.
-`	Create -debug command to debug all commands. 
+	TODO: Add more commands like mute, 8ball, remindme, currency, slots, lotto, vote
+	Add Check position to mod commands.	
+	Create -debug command to debug all commands. 
 	Add ignore channels
 	When joined a guild, send message and tell the admins which commands need which permissions
 	Add a permissions system where admin can restrict commands from certain roles/players
@@ -16,18 +17,22 @@ const
 
 	-m view command to view image at current time? 
 	Now Playing Channel?
-	Support livestreams (Kinda done)
+	Support livestreams (Change -m pause to end the livestream and play it back when it resumes)
 	Fix pages
 	Translate
 	Weather
+	Improve eval
+	Keep one music message at a time?
 	
+	Add message accumulation system(content += "x\n\n"; return content + " wow";) => (msg.add("x"); return msg.return("wow"))
+
 	Add comments explaining what each block of code does
 	Add restarting modules
 
 	Add deleteall command which basically removes and adds the same channel with the same perms
 */
 
-	self = client.self = { client, guilds: {}, commands: {}, set: false, setups: [], cleanups: [] };
+	self = client.self = Object.assign(new EventEmitter(), { client, guilds: {}, users: {}, commands: {}, set: false });
 
 client.on("message", msg => {
 	if(msg.author.bot || !self.set)return;
@@ -67,21 +72,16 @@ client.on("message", msg => {
 
 .on("guildCreate", guild => {
 	if(!self.set)return;
-	const { setups, guilds } = self,
-		id = guild.id;
+	const id = guild.id;
 	guilds[id] = { _id: id };
-	for(let i = 0; i < setups.length; i++)setups[i](id);
+	self.emit("guildCreate", guild);
 })
 
 .on("guildDelete", guild => {
 	if(!self.set)return;
-	const cleanups = self.cleanups,
-		pending = [], 
-		id = guild.id;
-	for(let i = 0; i < cleanups.length; i++){
-		pending[i] = cleanups[i](id);
-	}
-	Promise.all(pending).then(() => delete self.guilds[id]);
+
+	self.emit("guildDelete", guild);
+	delete self.guilds[guild.id];
 })
 
 .on("voiceStateUpdate", (oldMem, newMem) => self.set && self.commands.music.vcUpdate(newMem))
@@ -92,21 +92,18 @@ client.on("message", msg => {
 
 .login(process.env.TOKEN).then(() => {
 	console.log("Login successful!");
-	loadCommands(self.commands, "commands", self).then(() => {
-		const ids = client.guilds.keyArray(),
-			setups = self.setups,
-			pending = [];
+	mongo.connect(process.env.MONGODB_URI)
+	.then(mongoClient => {
+		self.db = mongoClient.db("joebot");
+		const ids = client.guilds.keyArray();
 		for(let i = 0; i < ids.length; i++){
-			const id = ids[i];
-			self.guilds[id] = { _id: id };
+			self.guilds[ids[i]] = {};
 		}
-		for(let i = 0; i < setups.length; i++){
-			pending[i] = setups[i](ids);
-		}
-		return Promise.all(pending);
-	}).then(() => {
+	})
+	.then(() => loadCommands(self.commands, "commands", self))
+	.then(() => {
 		self.set = true;
-		client.emit("set");
+		self.emit("set");
 		console.log(`The bot is online!`);
 	});
 });

@@ -13,12 +13,8 @@ const
 		music.nowPlaying = vid;
 
 		music.dispatcher = connection.playStream(stream).once("end", () => {
-			console.log("Played for", resolveDuration({ ms: music.dispatcher.time, format: { ms:1, s:1, m: 1, h:1, d:1 } }));
-			if(music.queue.length){
-				if(music.repeat)return music.queue.push(vid);
-				setTimeout(() => playTrack(music, connection), 5);
-				return;
-			}
+			if(music.repeat)return music.queue.push(vid);
+			if(music.queue.length)return setTimeout(() => playTrack(music, connection), 5);
 
 			music.nowPlaying = music.dispatcher = null;
 			connection.channel.leave();
@@ -41,7 +37,7 @@ const
 					const queuePush = vid => music.queue.push(Object.assign(vid, { dj: message.member.id, channel: message.channel }));
 					if(vid.length === 1)vid = vid[0];
 					if(vid instanceof Array){
-						for(const v of vid)queuePush(v);
+						for(let i = 0; i < vid.length; i++)queuePush(vid[i]);
 						content = `Added **${ vid.length } items** to queue from https://www.youtube.com/playlist?list=${ vid[0].id }`;
 					}else{
 						queuePush(vid);
@@ -59,22 +55,22 @@ const
 	initSelection = (embed, vids) => {
 		const createSelection = page => {
 			const i = page * 5,
-				id = vids[i].id
-			return (() => {
+				cached = typeof vids[i] === "object";
+			return Promise.resolve().then(() => {
 				const sliced = vids.slice(i, i + 5);
-				if(id)return Promise.resolve(sliced);
+				if(cached)return sliced;
 				return youtube.fetchVideoInfo(sliced, 5);
-			})().then(info => {
-				if(id)vids.splice(i, i + 5, ...info);
+			}).then(info => {
+				if(!cached)vids.splice(i, 5, ...info);
 				embed.setAuthor("Youtube") 
 				.setThumbnail(images.music)	
 				.setFooter(`Reply a number to choose or "cancel" to cancel`);
-				for(let i = 0; i < 5; i++){
-					const vid = info[i];
+				for(let j = 0; j < 5; j++){
+					const vid = info[j];
+					if(!vid)return;
 					const duration = vid.live ? "Live" : vid.upcoming ? "Upcoming" : resolveDuration({ iso: vid.duration, yt: true });
-					embed.addField(`**Option ${ i+1 }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vid.id }) (${ duration }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
+					embed.addField(`**Option ${ j+1 }**:`, `**[${ vid.title }](https://www.youtube.com/watch?v=${ vid.id }) (${ duration }) by** [${ vid.channelTitle }](https://www.youtube.com/channel/${ vid.channelId })`); 
 				}
-
 			});
 		};
 		return createSelection(0).then(() => createSelection);
@@ -91,10 +87,9 @@ const
 let commands;
 
 module.exports = class {
-	constructor(music) {
-		commands = music.commands;
+	constructor(self) {
 		this.aliases = ["p"];
-
+		self.once("set", () => commands = self.commands.music.commands);
 	}
 
 	run(music, message, query, flags, forcePlaylist = false) {
@@ -113,23 +108,25 @@ module.exports = class {
 				if(!forcePlaylist && video)return [video];
 				if(playlist)return youtube.fetchPlaylist(playlist);
 
-				if(!selection)return youtube.fetchVideoInfo(videoIds);
+				if(!selection)return videoIds;
 
 				if(videoIds.length !== selection){ // results.length should be equal to selection.
 					return resolve("Selection out of range."); 
 				}
 				return [videoIds.pop()];
 			}).then(results => {
+				if(!results)return;
 				if(!results.length){
-					if(video)return resolve("Invalid video link.");
-					if(playlist)return resolve("Empty/Invalid playlist.");
+					if(video)resolve("Invalid video link.");
+					if(playlist)resolve("Empty/Invalid playlist.");
+					resolve("No results found.");
+					return;
 				}
 				if(playlist || results.length === 1)return youtube.fetchVideoInfo(results).then(info => queueAdd(playlist ? Object.assign(info, { playlistId: playlist }) : info[0]));
-
 				let collector, awaitSelection, createSelection;
 
 				const pages = new Pages(message, {
-						change: (page, msg) => {
+						change: (page, msg) => { 
 							collector.stop();
 							collector = awaitSelection(page);
 							return createSelection(page);
@@ -146,7 +143,7 @@ module.exports = class {
 						},
 						timeout: 20000,
 						options: [...Pages.options.slice(0, -1), "❌"],
-						limit: 10
+						limit: Math.ceil(results.length / 5);
 					});
 				initSelection(pages, results).then(fn => {
 					createSelection = fn;

@@ -1,7 +1,4 @@
 module.exports = class {
-	constructor() {
-		this.aliases = ["hold"];
-	}
 
 	run(music) {
 		if(!music.nowPlaying)return "No songs currently playing.";

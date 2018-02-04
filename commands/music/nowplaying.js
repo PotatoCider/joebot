@@ -9,8 +9,6 @@ module.exports = class {
 	run(music, msg) {
 		const np = music.nowPlaying;
 		if(!np)return "There is nothing playing now.";
-		if(!msg)return `**Now playing**: **\`${ np.title }\` by** ${ np.channelTitle }\n\n`;
-		console.log(np);
 		const embed = new Embed(msg.author)
 			.setAuthor("Youtube")
 			.setImage(np.thumbnail)
