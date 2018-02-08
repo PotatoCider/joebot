@@ -115,7 +115,11 @@ module.exports = class {
 
 				return collection.find({ _id: userId }, { ["playlists." + name]: 1 }).toArray()
 				.then(users => youtube.fetchVideoInfo(users[0].playlists[name]))
-				.then(vids => music.queue.push(...vids))
+				.then(vids => {
+					for(let i = 0; i < vids.length; i++){
+						music.queue.push(Object.assign(vids[i], { dj: userId, channel: msg.channel }))
+					}
+				})
 				.then(() => self.commands.music.commands.play.run(music, msg))
 				.then(content => `Added **${ music.queue.length } songs** to queue from **${ name }**.`);
 				break;
