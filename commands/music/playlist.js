@@ -121,7 +121,7 @@ module.exports = class {
 					}
 				})
 				.then(() => self.commands.music.commands.play.run(music, msg))
-				.then(content => `Added **${ music.queue.length } songs** to queue from **${ name }**.`);
+				.then(content => `Added **${ music.queue.length } songs** to queue from **${ name }**.\n\n${ content || "" }`);
 				break;
 			default:
 				return "Invalid playlist command. Try '-m list new' or '-m list add'!";
