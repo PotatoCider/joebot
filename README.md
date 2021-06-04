@@ -1,12 +1,15 @@
-#JoeBot - A simple Discord Bot
-#### *admin, fun commands!*
-[<img src="https://img.shields.io/badge/discord-js-green.svg">](http://github.com/gohjoseph/JoeBot)
+to run it,
 
-# Join the community!
+1. Install Modules
+"npm install"
 
-New features are constantly added. Stay tuned by [joining the official server](https://discord.gg/vmggaYn)!
+2. Setup config.json
+See example-config.json
 
-Undergoing Constant Development.
-# License
+P.S.
+'Procfile' is the file needed for Heroku
+'log.txt' - log file
 
-Released under the [GNU GPL v3](LICENSE).
+There are plenty of unused utilities imported from Pixy (my other significantly better discord bot)
+
+Not maintained anymore since Jan 2018

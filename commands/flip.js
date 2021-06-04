@@ -13,7 +13,7 @@ module.exports = class {
 				let heads = 0, tails = 0;
 				for(let i = 0; i < param; i++)~~(Math.random()*2) ? heads++ : tails++;
 				resolve(`Flipped heads ${ heads } times\nFlipped tails ${ tails } times`);
-			}else resolve(process.env.HEADS ? "Heads!" : "Tails!");
+			}else resolve(~~(Math.random() * 2) ? "Heads!" : "Tails!");
 		});
 	}
 };
